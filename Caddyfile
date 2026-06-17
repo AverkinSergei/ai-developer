@@ -1,0 +1,25 @@
+# Reverse proxy: TLS, лимит размера тела, rate limit, маршруты вебхуков.
+# Замените example.com на реальный домен; TLS Caddy получит автоматически.
+example.com {
+	encode gzip
+
+	# Ограничение размера входящего payload (совпадает с WEBHOOK_MAX_BODY_MB).
+	request_body {
+		max_size 5MB
+	}
+
+	# Наружу открыты только вебхуки и health-пробы. /metrics и /internal — НЕ публиковать.
+	@public path /bitrix-webhook /gitlab-webhook /healthz /readyz
+	handle @public {
+		reverse_proxy api:8080
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

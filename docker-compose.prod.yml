@@ -1,0 +1,92 @@
+# Production-оверлей. Запуск:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Секреты — через Docker secrets (./secrets/*, вне VCS). postgres/redis закрыты в
+# internal-сети; ingress только через reverse proxy с TLS и rate limit.
+services:
+  api:
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g,noexec,nosuid,nodev
+    networks: [net_internal, net_egress]
+    ports: []  # наружу только через proxy
+    secrets:
+      - briefing_db_url
+      - redis_url
+      - gitlab_token
+      - gitlab_webhook_secret
+      - bitrix_app_token
+      - openai_api_key
+      - internal_api_token
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 1g }
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 256
+
+  worker:
+    command: arq app.worker.WorkerSettings
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g,noexec,nosuid,nodev
+    networks: [net_internal, net_egress]
+    volumes:
+      - ai_tmp:/worktmp
+    secrets:
+      - briefing_db_url
+      - redis_url
+      - gitlab_token
+      - gitlab_webhook_secret
+      - bitrix_app_token
+      - openai_api_key
+    deploy:
+      resources:
+        limits: { cpus: "4.0", memory: 8g }
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 512
+
+  postgres:
+    networks: [net_internal]
+    ports: []
+    environment:
+      POSTGRES_DB: ai_developer
+      POSTGRES_USER: ai_developer
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+
+  redis:
+    networks: [net_internal]
+    ports: []
+
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [api]
+    networks: [net_internal, net_egress]
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256m }
+
+networks:
+  net_internal:
+    internal: true  # postgres/redis недоступны извне
+  net_egress: {}  # исходящий доступ к GitLab/Bitrix/OpenAI
+
+volumes:
+  caddy_data:
+
+secrets:
+  postgres_password: { file: ./secrets/postgres_password }
+  briefing_db_url: { file: ./secrets/briefing_db_url }
+  redis_url: { file: ./secrets/redis_url }
+  gitlab_token: { file: ./secrets/gitlab_token }
+  gitlab_webhook_secret: { file: ./secrets/gitlab_webhook_secret }
+  bitrix_app_token: { file: ./secrets/bitrix_app_token }
+  openai_api_key: { file: ./secrets/openai_api_key }
+  internal_api_token: { file: ./secrets/internal_api_token }
