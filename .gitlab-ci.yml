@@ -19,6 +19,11 @@ typecheck:
     - mypy app
   allow_failure: true
 
+docs:
+  stage: lint
+  script:
+    - mkdocs build --strict
+
 test:
   stage: test
   services:
