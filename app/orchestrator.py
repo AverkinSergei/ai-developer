@@ -12,7 +12,8 @@ from app import briefing_state_machine as fsm
 from app.answer_extractor import accepted, extract_structured, extract_with_model
 from app.briefing import render_round_comment, template_questions
 from app.briefing_store import BriefingStore
-from app.clients.protocols import BitrixClient, GitLabClient, LLMClient
+from app.clients.graph import GraphifyGraph, resolve_graph_path
+from app.clients.protocols import BitrixClient, GitLabClient, GraphIndex, LLMClient
 from app.coding import generate_changes
 from app.config import Settings, settings
 from app.context_engine import ContextEngine
@@ -234,9 +235,10 @@ async def run_coding_slice(
     llm: LLMClient,
     gitlab: GitLabClient,
     settings: Settings = settings,
+    graph: GraphIndex | None = None,
 ) -> dict:
     """Тонкий срез: план -> гейты -> код -> ветка auto-task-* -> Draft MR."""
-    gate = await explore_and_plan(card, engine, llm, settings)
+    gate = await explore_and_plan(card, engine, llm, settings, graph=graph)
 
     if gate.risk_level == "blocked":
         return {"status": "blocked", "gate": gate}
@@ -450,8 +452,10 @@ async def execute_plan(
     async with checkout_workspace(task_id) as ws:
         root = await gitlab.fetch_archive(card.target_repo, settings.fork_base_branch, ws)
         engine = ContextEngine(root)
+        graph_path = resolve_graph_path(card.target_repo, root, settings.graph_cache_dir)
+        graph = GraphifyGraph(graph_path) if graph_path else None
         result = await run_coding_slice(
-            card, engine=engine, llm=llm, gitlab=gitlab, settings=settings
+            card, engine=engine, llm=llm, gitlab=gitlab, settings=settings, graph=graph
         )
 
     status = result["status"]

@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     max_repo_archive_mb: int = 500
     max_repo_unpacked_mb: int = 2000
     agent_tmp_dir: str = "/worktmp"
+    # Кэш персистентных графов кода (graphify). Пусто = только локальный graphify-out/.
+    graph_cache_dir: str = ""
     agent_tmp_cleanup_ttl_hours: int = 24
     webhook_max_body_mb: int = 5
     webhook_allowed_ips: list[str] = Field(default_factory=list)

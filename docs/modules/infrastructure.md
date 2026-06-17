@@ -40,7 +40,10 @@ Prometheus-метрики: `webhooks_total`, `go_decisions_total`, `phase_errors
   commits, MR, notes, роли, Draft→Ready); push только в `auto-task-*`;
 - `llm` — `OpenAILLM`, OpenAI-совместимый (chat completions), `base_url` настраивается;
 - `fakes` — in-memory `FakeBitrix`/`FakeGitLab`/`FakeLLM`/`FakeGraph` для тестов;
-- `graph` (`GraphIndex`) — навигация по персистентному графу кода (graphify) для Explore & Plan.
+- `graph` — `GraphifyGraph` (реализует `GraphIndex`): читает персистентный `graph.json`
+  graphify и даёт `query`/`path`/`explain` без внешних процессов. Путь к графу резолвится
+  через `resolve_graph_path` (кэш `GRAPH_CACHE_DIR` по repo → `<checkout>/graphify-out/`).
+  Если графа нет — объект «недоступен», и Explore & Plan опирается только на safe-tools.
 
 ## `gitlab_roles`
 

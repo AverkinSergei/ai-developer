@@ -17,9 +17,12 @@ path traversal, symlink-escape (файл и каталог), чтение `.env`
 
 ## `planning`
 
-Explore & Plan: разведка по песочнице → `finalize_plan` → `RiskPlanGate`. Пути изменений от
-модели валидируются (`PlanError` на traversal/absolute/denied). `doc_impact` fail-closed:
-без обоснования пропуска документация считается нужной.
+Explore & Plan: разведка по песочнице → `finalize_plan` → `RiskPlanGate`. Если для
+репозитория есть граф кода (graphify), `explore_and_plan` добавляет в промпт **навигационную
+подсказку** (`graph_hint_untrusted`) — узлы и связи, релевантные бизнес-цели; это подсказка,
+а не источник истины, и при её отсутствии планирование работает только на safe-tools. Пути
+изменений от модели валидируются (`PlanError` на traversal/absolute/denied). `doc_impact`
+fail-closed: без обоснования пропуска документация считается нужной.
 
 ## `coding`
 
