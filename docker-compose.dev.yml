@@ -1,0 +1,11 @@
+# Dev-only оверлей. Подключается ЯВНО:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis
+# Публикует порты postgres/redis на хост для локальных тестов и запуска приложения
+# вне контейнера. Не подключать в production — внешний доступ к БД должен быть закрыт.
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+  redis:
+    ports:
+      - "6379:6379"
