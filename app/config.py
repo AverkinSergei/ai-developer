@@ -78,6 +78,8 @@ class Settings(BaseSettings):
     agent_tmp_dir: str = "/worktmp"
     # Кэш персистентных графов кода (graphify). Пусто = только локальный graphify-out/.
     graph_cache_dir: str = ""
+    # Команда построения графа; {path} подставляется корнем чекаута репозитория.
+    graph_build_cmd: str = "graphify {path} --update --no-viz"
     agent_tmp_cleanup_ttl_hours: int = 24
     webhook_max_body_mb: int = 5
     webhook_allowed_ips: list[str] = Field(default_factory=list)

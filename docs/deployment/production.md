@@ -45,3 +45,17 @@ checks.
 
 `worker` запускается как `arq app.worker.WorkerSettings` (включает cron `drain_outbox`).
 Масштабируется горизонтально — см. [Масштабирование](scaling.md).
+
+## Онбординг графов кода (опционально)
+
+Графы кода для Explore & Plan строятся **офлайн** и кладутся в `GRAPH_CACHE_DIR` командой:
+
+```bash
+ai-developer build-graph namespace/project-a namespace/project-b [--ref main]
+```
+
+Команда скачивает архив репозитория (от `FORK_BASE_BRANCH`), запускает `GRAPH_BUILD_CMD`
+(по умолчанию `graphify {path} --update --no-viz`) и кладёт `graph.json` в
+`GRAPH_CACHE_DIR/<namespace_project>/graph.json`. Запускайте при онбординге репозитория и
+периодически (cron) для обновления. Требуется доступ к GitLab и установленный `graphify`.
+Если граф не построен — Explore & Plan работает только на safe-tools.

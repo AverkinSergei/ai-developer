@@ -17,6 +17,12 @@ docker compose up --build     # api :8080 + worker + postgres + redis
 
 Миграции: `alembic upgrade head`. Метрики Prometheus: `GET /metrics`.
 
+Граф кода целевого репозитория (для Explore & Plan) строится офлайн:
+
+```bash
+ai-developer build-graph namespace/project   # → GRAPH_CACHE_DIR/<repo>/graph.json
+```
+
 ## Production
 
 ```bash

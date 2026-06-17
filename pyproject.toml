@@ -6,6 +6,9 @@ authors = ["brandpol"]
 readme = "README.md"
 packages = [{ include = "app" }]
 
+[tool.poetry.scripts]
+ai-developer = "app.cli:main"
+
 [tool.poetry.dependencies]
 python = "^3.14"
 fastapi = "^0.115.6"
