@@ -65,11 +65,16 @@ async def test_multi_repo_creates_mr_per_repo(db_session, monkeypatch, tmp_path)
     gl = FakeGitLab(files={"grp/a": {"app/m.py": "# a\n"}, "grp/b": {"app/m.py": "# b\n"}})
     llm = FakeLLM(responses=[*_plan_code(), *_plan_code()])  # по паре на каждый репо
 
-    res = await execute_plan(db_session, task_id="B24-1", gitlab=gl, llm=llm, bitrix=FakeBitrix())
+    bitrix = FakeBitrix()
+    res = await execute_plan(db_session, task_id="B24-1", gitlab=gl, llm=llm, bitrix=bitrix)
     assert res["status"] == "multi"
     assert len(res["results"]) == 2
     assert {r["repo"] for r in res["results"]} == {"grp/a", "grp/b"}
     assert {mr["repo"] for mr in gl.mrs} == {"grp/a", "grp/b"}  # по MR на каждый репо
+    # один сводный комментарий по всем репозиториям
+    summaries = [c for c in bitrix.comments if "[AI_MR_SUMMARY]" in c["text"]]
+    assert len(summaries) == 1
+    assert "grp/a" in summaries[0]["text"] and "grp/b" in summaries[0]["text"]
     assert gl.branch_refs[("grp/a", "auto-task-B24-1")] == "main"
     assert gl.branch_refs[("grp/b", "auto-task-B24-1")] == "main"
 

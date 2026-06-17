@@ -492,23 +492,28 @@ async def _plan_one_repo(
     return result
 
 
-def _plan_status_note(results: list[dict]) -> str:
-    lines: list[str] = []
+def _plan_summary(task_id: str, results: list[dict]) -> str:
+    """Сводный комментарий по всем репозиториям задачи: статус и Draft MR каждого."""
+    ready = sum(1 for r in results if r["status"] == "mr_ready")
+    header = f"[AI_MR_SUMMARY] Задача {task_id}: Draft MR готов для {ready} из {len(results)} репо"
+    lines = [header, ""]
     for r in results:
         repo = r.get("repo", "?")
         status = r["status"]
+        gate = r.get("gate")
+        risk = f", risk={gate.risk_level}" if gate is not None else ""
         if status == "mr_ready":
             mr = r["mr"]
             link = mr.get("web_url") or f"MR !{mr['iid']}"
-            lines.append(f"{repo}: Draft MR {link}")
+            lines.append(f"- {repo}: Draft MR {link} (ветка {r.get('branch')}{risk})")
         elif status == "blocked":
-            lines.append(f"{repo}: risk=blocked — нужен человек")
+            lines.append(f"- {repo}: risk=blocked — автоному нельзя, нужен человек")
         elif status == "needs_human":
-            lines.append(f"{repo}: high-risk — нужен human pre-approval / Red Team")
+            lines.append(f"- {repo}: high-risk{risk} — нужен human pre-approval / Red Team")
         elif status == "self_check_failed":
-            lines.append(f"{repo}: self-check не пройден")
+            lines.append(f"- {repo}: self-check не пройден")
         else:
-            lines.append(f"{repo}: {status}")
+            lines.append(f"- {repo}: {status}")
     return "\n".join(lines)
 
 
@@ -556,7 +561,7 @@ async def execute_plan(
     elif any(r["status"] == "needs_human" for r in results):
         task.phase = "needs_human"
     await db.flush()
-    await bitrix.set_status_note(task_id, _plan_status_note(results))
+    await bitrix.add_comment(task_id, _plan_summary(task_id, results))
 
     if len(results) == 1:
         return results[0]  # обратная совместимость с одним репозиторием

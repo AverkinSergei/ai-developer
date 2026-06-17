@@ -156,7 +156,7 @@ async def test_execute_plan_creates_draft_mr(db_session, monkeypatch, tmp_path):
     assert gl.branch_refs[("grp/repo", "auto-task-B24-1")] == "main"
     task = await db_session.get(TaskState, "B24-1")
     assert task.mr_iid == res["mr"]["iid"]
-    assert "B24-1" in bitrix.status_notes
+    assert any("[AI_MR_SUMMARY]" in c["text"] for c in bitrix.comments)
 
 
 async def test_briefing_answer_advances_via_worker_path(db_session):
