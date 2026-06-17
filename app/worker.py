@@ -41,7 +41,7 @@ async def run_task_phase(ctx: dict[str, Any], task_id: str, phase: str) -> None:
         text = str(raw.get("description") or raw.get("DESCRIPTION") or "")
         async with sessionmanager.session() as db:
             result = await intake_task(
-                db, task_id=task_id, raw_fields=raw, text=text, bitrix=bitrix
+                db, task_id=task_id, raw_fields=raw, text=text, bitrix=bitrix, llm=OpenAILLM()
             )
             await db.commit()
         log_event("intake_done", task_id=task_id, **result)

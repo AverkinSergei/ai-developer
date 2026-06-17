@@ -24,6 +24,7 @@ from app.go_authorizer import GoContext, GoDecision, authorize
 from app.graph_build import sync_repo_graph
 from app.intake import VALID_TASK_TYPES, build_task_card, missing_required_fields
 from app.planning import explore_and_plan
+from app.repo_planner import classify_repos
 from app.workspace import checkout_workspace
 
 # Без этих полей задачу нельзя даже завести; остальное добирает брифинг.
@@ -312,6 +313,7 @@ async def intake_task(
     raw_fields: dict,
     text: str,
     bitrix: BitrixClient,
+    llm: LLMClient | None = None,
     settings: Settings = settings,
 ) -> dict:
     """Валидирует постановку, сохраняет карточку и открывает брифинг или READY_FOR_GO."""
@@ -363,6 +365,15 @@ async def intake_task(
         )
     if session.state != fsm.NEW:
         return {"status": "already_started", "state": session.state}
+
+    # Бот сам разбирается в репозиториях и комментирует несоответствия (advisory, не блокирует).
+    if llm is not None and (len(card.all_repos) > 1 or card.context_only_repos):
+        classification = await classify_repos(card, llm)
+        if classification.mismatches:
+            note = "[AI_REPO_CHECK] Возможные несоответствия в репозиториях:\n- " + "\n- ".join(
+                classification.mismatches
+            )
+            await bitrix.add_comment(task_id, note)
 
     gaps = [g for g in missing_required_fields(normalized) if g not in _INTAKE_REQUIRED]
     if not gaps:

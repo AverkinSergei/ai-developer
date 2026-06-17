@@ -36,6 +36,14 @@ outbox (`add_outbox`/`list_pending_outbox`/`mark_outbox_sent`).
 (`HIGH_RISK_GO_REQUIRES_MAINTAINER`) требуется maintainer или reviewer. Пустой `user_id` не
 совпадает ни с одним правилом.
 
+## `repo_planner`
+
+`classify_repos` — бот сам определяет, в каких репозиториях задачи нужны изменения (MR), а
+какие нужны только для контекста, и сверяет это со списками постановщика. При несоответствиях
+(`mismatches`) intake публикует advisory-комментарий `[AI_REPO_CHECK]` в задачу. Это
+**подсказка, а не смена scope**: бот не меняет молча, в каких репозиториях делать MR — это
+решение человека; работает по указанным спискам.
+
 ## `commands`
 
 Парсер команд из комментариев: `/go`, `/briefing answer|status|reopen|cancel|skip`,
