@@ -60,6 +60,8 @@ docker-compose и MR не попадают.
 | `AGENT_TMP_DIR` | `/worktmp` |
 | `GRAPH_CACHE_DIR` | `""` — кэш графов кода graphify по repo (пусто = только локальный `graphify-out/`) |
 | `GRAPH_BUILD_CMD` | `graphify {path} --update --no-viz` — команда построения графа (`{path}` = корень чекаута) |
+| `GRAPH_AUTO_BUILD` | `true` — построить граф при первом обращении, если в кэше его нет |
+| `GRAPH_REFRESH_ON_TASK` | `true` — обновлять граф (`--update`) на каждом запуске для репо задачи |
 | `WEBHOOK_MAX_BODY_MB` | 5 |
 | `METRICS_ENABLED` | true |
 | `LOG_REDACTION_ENABLED` | true |

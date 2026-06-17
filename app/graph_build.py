@@ -10,8 +10,9 @@ import shutil
 from collections.abc import Awaitable, Callable
 
 from app.audit import log_event
+from app.clients.graph import resolve_graph_path
 from app.clients.protocols import GitLabClient
-from app.config import settings
+from app.config import Settings, settings
 from app.workspace import checkout_workspace
 
 # runner(cmd, cwd) — выполняет команду сборки графа; бросает на ненулевом коде возврата.
@@ -68,3 +69,32 @@ async def build_repo_graph(
 
     log_event("graph_built", repo=repo, ref=ref, dest=dest)
     return dest
+
+
+async def sync_repo_graph(
+    repo: str,
+    *,
+    gitlab: GitLabClient,
+    settings: Settings = settings,
+    runner: Runner | None = None,
+) -> str | None:
+    """Синхронизирует граф репозитория перед планированием и возвращает путь к нему.
+
+    - `GRAPH_REFRESH_ON_TASK` — обновлять граф (graphify --update) на каждом запуске;
+    - `GRAPH_AUTO_BUILD` — построить при отсутствии в кэше.
+
+    Best-effort: любой сбой сборки (нет graphify, ошибка) не роняет задачу — возвращается
+    ранее закэшированный граф (возможно устаревший) либо None (тогда только safe-tools).
+    """
+    cache = settings.graph_cache_dir
+    if not cache:
+        return None
+    existing = resolve_graph_path(repo, None, cache)
+    need_build = settings.graph_refresh_on_task or (existing is None and settings.graph_auto_build)
+    if not need_build:
+        return existing
+    try:
+        return await build_repo_graph(repo, gitlab=gitlab, cache_dir=cache, runner=runner)
+    except GraphBuildError as exc:
+        log_event("graph_sync_failed", repo=repo, error=str(exc))
+        return existing  # фолбэк на возможно устаревший кэш

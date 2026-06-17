@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     graph_cache_dir: str = ""
     # Команда построения графа; {path} подставляется корнем чекаута репозитория.
     graph_build_cmd: str = "graphify {path} --update --no-viz"
+    # Строить граф автоматически при первом обращении, если в кэше его нет.
+    graph_auto_build: bool = True
+    # Обновлять граф (graphify --update) на каждом запуске задачи для её репозитория.
+    graph_refresh_on_task: bool = True
     agent_tmp_cleanup_ttl_hours: int = 24
     webhook_max_body_mb: int = 5
     webhook_allowed_ips: list[str] = Field(default_factory=list)

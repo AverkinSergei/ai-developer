@@ -12,7 +12,7 @@ from app import briefing_state_machine as fsm
 from app.answer_extractor import accepted, extract_structured, extract_with_model
 from app.briefing import render_round_comment, template_questions
 from app.briefing_store import BriefingStore
-from app.clients.graph import GraphifyGraph, resolve_graph_path
+from app.clients.graph import GraphifyGraph
 from app.clients.protocols import BitrixClient, GitLabClient, GraphIndex, LLMClient
 from app.coding import generate_changes
 from app.config import Settings, settings
@@ -21,6 +21,7 @@ from app.contracts import BriefingCommand, RiskPlanGate, TaskCard
 from app.db.models import TaskState
 from app.dod import DoDResult
 from app.go_authorizer import GoContext, GoDecision, authorize
+from app.graph_build import sync_repo_graph
 from app.intake import VALID_TASK_TYPES, build_task_card, missing_required_fields
 from app.planning import explore_and_plan
 from app.workspace import checkout_workspace
@@ -452,7 +453,8 @@ async def execute_plan(
     async with checkout_workspace(task_id) as ws:
         root = await gitlab.fetch_archive(card.target_repo, settings.fork_base_branch, ws)
         engine = ContextEngine(root)
-        graph_path = resolve_graph_path(card.target_repo, root, settings.graph_cache_dir)
+        # Синхронизируем граф репозитория (refresh каждый запуск + build при отсутствии).
+        graph_path = await sync_repo_graph(card.target_repo, gitlab=gitlab, settings=settings)
         graph = GraphifyGraph(graph_path) if graph_path else None
         result = await run_coding_slice(
             card, engine=engine, llm=llm, gitlab=gitlab, settings=settings, graph=graph

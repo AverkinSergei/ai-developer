@@ -56,6 +56,11 @@ ai-developer build-graph namespace/project-a namespace/project-b [--ref main]
 
 Команда скачивает архив репозитория (от `FORK_BASE_BRANCH`), запускает `GRAPH_BUILD_CMD`
 (по умолчанию `graphify {path} --update --no-viz`) и кладёт `graph.json` в
-`GRAPH_CACHE_DIR/<namespace_project>/graph.json`. Запускайте при онбординге репозитория и
-периодически (cron) для обновления. Требуется доступ к GitLab и установленный `graphify`.
-Если граф не построен — Explore & Plan работает только на safe-tools.
+`GRAPH_CACHE_DIR/<namespace_project>/graph.json`. Требуется доступ к GitLab и установленный
+`graphify`.
+
+Помимо ручного запуска, ai-developer **синхронизирует граф сам**: при выполнении задачи
+граф репозитория обновляется (`GRAPH_REFRESH_ON_TASK`) или строится при отсутствии
+(`GRAPH_AUTO_BUILD`). Это best-effort: при сбое сборки задача не падает — используется ранее
+закэшированный граф или только safe-tools. Ручная команда полезна для предварительного
+прогрева кэша и периодического обновления по cron.
