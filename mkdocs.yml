@@ -1,0 +1,61 @@
+site_name: AI-developer — справочник
+site_description: Автономная AI-система разработки (Битрикс24 → FastAPI → GitLab Draft MR)
+docs_dir: docs
+use_directory_urls: false  # удобно открывать собранный site/ офлайн с диска
+
+theme:
+  name: material
+  language: ru
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - toc.integrate
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: indigo
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.details
+
+nav:
+  - Главная: index.md
+  - Обзор:
+      - Введение: overview/introduction.md
+      - Принципы: overview/principles.md
+      - Жизненный цикл задачи: overview/lifecycle.md
+  - Архитектура:
+      - Компоненты: architecture/components.md
+      - Модель данных: architecture/data-model.md
+      - Конечный автомат брифинга: architecture/state-machine.md
+      - Контракты: architecture/contracts.md
+  - Модули:
+      - Обзор модулей: modules/index.md
+      - API и оркестрация: modules/api-orchestration.md
+      - Брифинг и авторизация: modules/briefing.md
+      - Риск, план, код: modules/coding.md
+      - Гейты качества и безопасности: modules/gates.md
+      - Research-контур: modules/research.md
+      - Инфраструктура: modules/infrastructure.md
+  - Конфигурация: configuration.md
+  - Безопасность: security.md
+  - Тестирование: testing.md
+  - Развёртывание:
+      - Обзор: deployment/index.md
+      - Требования к окружению: deployment/requirements.md
+      - Локально с внешними Битрикс24/GitLab: deployment/local-external.md
+      - Production: deployment/production.md
+      - Наблюдаемость: deployment/observability.md
+      - Масштабирование: deployment/scaling.md
+      - Чек-лист go-live: deployment/go-live-checklist.md
+  - Справочник:
+      - Команды: reference/commands.md
+      - Эндпоинты: reference/endpoints.md
+      - Глоссарий: reference/glossary.md

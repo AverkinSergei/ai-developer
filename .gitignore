@@ -11,3 +11,4 @@ build/
 graphify-out/
 secrets/*
 !secrets/README.md
+site/
