@@ -1,0 +1,36 @@
+stages: [lint, test]
+
+default:
+  image: python:3.14-slim
+  before_script:
+    - pip install poetry==1.8.5
+    - poetry config virtualenvs.create false
+    - poetry install --no-root --no-interaction
+
+lint:
+  stage: lint
+  script:
+    - ruff check .
+    - ruff format --check .
+
+typecheck:
+  stage: lint
+  script:
+    - mypy app
+  allow_failure: true
+
+test:
+  stage: test
+  services:
+    - name: postgres:15
+      alias: postgres
+    - name: redis:7
+      alias: redis
+  variables:
+    POSTGRES_DB: ai_developer
+    POSTGRES_USER: ai_developer
+    POSTGRES_PASSWORD: ai_developer
+    BRIEFING_DB_URL: "postgresql+asyncpg://ai_developer:ai_developer@postgres:5432/ai_developer"
+    REDIS_URL: "redis://redis:6379/0"
+  script:
+    - pytest -q

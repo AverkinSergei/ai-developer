@@ -1,0 +1,21 @@
+# Per-repo baseline для целевого репозитория. Копируется в корень репо как .ai-agent.yml.
+version: 1
+repo_type: python
+base_branch: dev
+commands:
+  test: "pytest"
+  lint: "ruff check ."
+  typecheck: "mypy ."
+security:
+  secret_scan: true
+  dependency_scan: true
+  red_team_paths:
+    - "**/auth/**"
+    - "**/permissions/**"
+    - "**/payments/**"
+    - "**/migrations/**"
+    - "**/webhooks/**"
+docs:
+  require_for_public_api: true
+preview:
+  enabled: false

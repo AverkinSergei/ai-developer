@@ -1,0 +1,82 @@
+# Архитектурный шаблон. В production вынести секреты в Docker secrets/Vault,
+# настроить TLS на reverse proxy, backup PostgreSQL и лимиты размера запросов.
+services:
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: [.env]
+    ports:
+      - "8080:8080"
+    networks: [ai_internal]
+    read_only: true
+    tmpfs:
+      - /tmp:size=2g,noexec,nosuid,nodev
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+
+  worker:
+    build: .
+    command: arq app.worker.WorkerSettings
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: [.env]
+    networks: [ai_internal]
+    volumes:
+      - ai_tmp:/worktmp
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 8g
+
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ai_developer
+      POSTGRES_USER: ai_developer
+      POSTGRES_PASSWORD: ai_developer
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks: [ai_internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_developer"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks: [ai_internal]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+# Dev-сеть: обычный bridge (egress к GitLab/Bitrix/OpenAI). В production —
+# отдельный internal-контур для postgres/redis + reverse proxy для ingress.
+networks:
+  ai_internal:
+
+volumes:
+  ai_tmp:
+  pg_data:
+  redis_data:

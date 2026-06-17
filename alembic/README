@@ -1,0 +1,1 @@
+Async-миграции. Создание: `alembic revision --autogenerate -m "..."`. Применение: `alembic upgrade head`.

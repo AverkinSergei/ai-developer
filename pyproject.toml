@@ -1,0 +1,52 @@
+[tool.poetry]
+name = "ai-developer"
+version = "0.1.0"
+description = "Автономная AI-система разработки: Битрикс24 -> FastAPI-агент -> GitLab Draft MR"
+authors = ["brandpol"]
+readme = "README.md"
+packages = [{ include = "app" }]
+
+[tool.poetry.dependencies]
+python = "^3.14"
+fastapi = "^0.115.6"
+uvicorn = { extras = ["standard"], version = "^0.34.0" }
+gunicorn = "^23.0.0"
+pydantic = "^2.10.4"
+pydantic-settings = "^2.7.0"
+sqlalchemy = "^2.0.36"
+asyncpg = "^0.30.0"
+alembic = "^1.14.0"
+redis = "^5.2.1"
+arq = "^0.26.3"
+httpx = "^0.28.1"
+loguru = "^0.7.3"
+python-multipart = "^0.0.18"
+prometheus-client = "^0.21.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+pytest-asyncio = "^0.25.0"
+ruff = "^0.9.1"
+mypy = "^1.14.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+# py314 ещё не поддерживается ruff как target; рантайм — 3.14, это лишь профиль синтаксиса.
+target-version = "py313"
+# Автогенерируемые миграции не линтуем и не форматируем.
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "S"]
+ignore = ["S101"]  # assert разрешён в тестах
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
