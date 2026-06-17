@@ -25,6 +25,12 @@ GitLab (`@ai *`). Распознаются только в начале комм
 | `@ai fix` | reviewer/maintainer | исправить замечания в MR в рамках лимитов |
 | `@ai redteam` | reviewer/maintainer/security | принудительно запустить Red Team |
 
+## CLI
+
+| Команда | Назначение |
+|---|---|
+| `ai-developer build-graph <repo...> [--ref]` | построить графы кода репозиториев в `GRAPH_CACHE_DIR` |
+
 ## Пример раунда
 
 ```

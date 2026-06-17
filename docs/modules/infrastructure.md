@@ -49,6 +49,17 @@ Prometheus-метрики: `webhooks_total`, `go_decisions_total`, `phase_errors
 
 `make_maintainer_resolver` — резолвер maintainer/owner-роли для авторизации high-risk `/go`.
 
+## `graph_build`
+
+Построение/обновление графа кода: `build_repo_graph` (checkout → `GRAPH_BUILD_CMD` → копия в
+`GRAPH_CACHE_DIR`) и `sync_repo_graph` (на задаче: refresh при `GRAPH_REFRESH_ON_TASK`,
+build при `GRAPH_AUTO_BUILD`; best-effort — сбой не роняет задачу).
+
+## `cli`
+
+CLI `ai-developer` (argparse). Команда `build-graph <repo...> [--ref]` строит графы целевых
+репозиториев в `GRAPH_CACHE_DIR` офлайн. Entrypoint — `[tool.poetry.scripts]`.
+
 ## `contracts`
 
 Pydantic-контракты межмодульного обмена (см. [Контракты](../architecture/contracts.md)).

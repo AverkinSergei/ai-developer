@@ -32,8 +32,13 @@ request-потоке не выполняется — только быстрый
 
 Бизнес-оркестрация поверх стора, клиентов и FSM:
 
-- `intake_task` — карточка из полей Битрикс + теги → брифинг или `READY_FOR_GO`;
+- `intake_task` — карточка из полей Битрикс + теги → брифинг или `READY_FOR_GO`; при
+  нескольких репозиториях запускает классификацию (`repo_planner`) и постит advisory
+  `[AI_REPO_CHECK]` при несоответствиях;
 - `handle_answers` + `finalize_round` — приём ответов и completeness-проверка;
 - `handle_go` — авторизация `/go`, запись события, переход в `APPROVED`, запись намерения в outbox;
-- `run_coding_slice` / `execute_plan` — план → код → ветка `auto-task-*` (от main) → Draft MR;
+- `run_coding_slice` — план → код → ветка `auto-task-*` (от main) → Draft MR для одного репо;
+- `execute_plan` — проходит по всем change-репозиториям задачи (`all_repos`), делает **по
+  Draft MR на каждый**, строит общие контекстные графы (`context_only_repos`) и публикует
+  **сводный комментарий `[AI_MR_SUMMARY]`** по всем MR в Б24;
 - `finalize_mr` — снятие Draft и назначение reviewer (merge — за человеком).

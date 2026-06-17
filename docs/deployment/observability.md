@@ -15,8 +15,8 @@
 
 Структурные JSON-логи (loguru) с редакцией секретов. Ключевые события: `intake_done`,
 `go_authorized`/`go_rejected`, `self_fix_enqueued`/`self_fix_limit_reached`, `plan_done`,
-`outbox_drained`, переходы FSM (`audit_event`). Запрещено логировать токены, cookies,
-заголовки Authorization и сырые PII.
+`outbox_drained`, `graph_built`/`graph_sync_failed`/`graph_autobuild_failed`, переходы FSM
+(`audit_event`). Запрещено логировать токены, cookies, заголовки Authorization и сырые PII.
 
 ## Health
 
