@@ -32,6 +32,12 @@ FAIL / NEED_HUMAN_REVIEW / любой high|blocker.
 `risk_hint`, `reviewer`, `author_user_id`, теги `tests`/`docs`/`preview`/`security`,
 `context_keywords[]`.
 
+**Несколько репозиториев:** `target_repos[]` — дополнительные репозитории **для изменений**
+(по одному Draft MR на каждый); `context_repos[]` — **read-only** репозитории только для
+контекста (участвуют в Explore & Plan через граф, но MR в них не делается). Свойства:
+`all_repos` (где делаются MR: основной + дополнительные, без дублей) и `context_only_repos`
+(контекст за вычетом change-репозиториев).
+
 ## BriefingCommand / BriefingSessionContract
 
 `BriefingCommand` — разобранная команда (`go`, `briefing_answer`, `briefing_status`,

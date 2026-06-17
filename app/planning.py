@@ -24,23 +24,33 @@ class PlanError(Exception):
     """Модель вернула некорректный план."""
 
 
+async def _safe_query(graph: GraphIndex, question: str) -> str:
+    try:
+        return await graph.query(question)
+    except Exception:  # noqa: BLE001 — подсказка опциональна, не должна ронять план
+        return ""
+
+
 async def explore_and_plan(
     card: TaskCard,
     engine: ContextEngine,
     llm: LLMClient,
     settings: Settings,
     graph: GraphIndex | None = None,
+    context_graphs: list[GraphIndex] | None = None,
 ) -> RiskPlanGate:
     tree = engine.list_dir(".")
 
-    # Граф кода — навигационная подсказка (untrusted), не источник истины.
-    graph_hint = ""
+    # Графы кода — навигационная подсказка (untrusted), не источник истины.
+    question = card.business_goal or card.acceptance_criteria or "architecture overview"
+    hints: list[str] = []
     if graph is not None:
-        question = card.business_goal or card.acceptance_criteria or "architecture overview"
-        try:
-            graph_hint = await graph.query(question)
-        except Exception:  # noqa: BLE001 — подсказка опциональна, не должна ронять план
-            graph_hint = ""
+        hints.append(await _safe_query(graph, question))
+    for ctx_graph in context_graphs or []:
+        ctx_hint = await _safe_query(ctx_graph, question)
+        if ctx_hint:
+            hints.append(f"[context repo]\n{ctx_hint}")
+    graph_hint = "\n\n".join(h for h in hints if h)
 
     prompt_payload = {
         "task_type": card.task_type,

@@ -237,9 +237,12 @@ async def run_coding_slice(
     gitlab: GitLabClient,
     settings: Settings = settings,
     graph: GraphIndex | None = None,
+    context_graphs: list[GraphIndex] | None = None,
 ) -> dict:
     """Тонкий срез: план -> гейты -> код -> ветка auto-task-* -> Draft MR."""
-    gate = await explore_and_plan(card, engine, llm, settings, graph=graph)
+    gate = await explore_and_plan(
+        card, engine, llm, settings, graph=graph, context_graphs=context_graphs
+    )
 
     if gate.risk_level == "blocked":
         return {"status": "blocked", "gate": gate}
@@ -435,6 +438,69 @@ async def finalize_round(
     return {"status": "more_info", "questions": len(gaps)}
 
 
+async def _build_context_graphs(
+    repos: list[str], *, gitlab: GitLabClient, settings: Settings
+) -> list[GraphIndex]:
+    """Графы read-only репозиториев-контекста (без MR). Best-effort, недоступные пропускаем."""
+    graphs: list[GraphIndex] = []
+    for repo in repos:
+        path = await sync_repo_graph(repo, gitlab=gitlab, settings=settings)
+        if path:
+            graphs.append(GraphifyGraph(path))
+    return graphs
+
+
+async def _plan_one_repo(
+    task_id: str,
+    repo: str,
+    card: TaskCard,
+    *,
+    gitlab: GitLabClient,
+    llm: LLMClient,
+    settings: Settings,
+    context_graphs: list[GraphIndex],
+) -> dict:
+    """План/код/Draft MR для одного репозитория задачи (с учётом контекстных графов)."""
+    repo_card = card.model_copy(update={"target_repo": repo})
+    ws_id = f"{task_id}-{repo.replace('/', '_')}"
+    async with checkout_workspace(ws_id) as ws:
+        root = await gitlab.fetch_archive(repo, settings.fork_base_branch, ws)
+        engine = ContextEngine(root)
+        graph_path = await sync_repo_graph(repo, gitlab=gitlab, settings=settings)
+        graph = GraphifyGraph(graph_path) if graph_path else None
+        result = await run_coding_slice(
+            repo_card,
+            engine=engine,
+            llm=llm,
+            gitlab=gitlab,
+            settings=settings,
+            graph=graph,
+            context_graphs=context_graphs,
+        )
+    result["repo"] = repo
+    return result
+
+
+def _plan_status_note(results: list[dict]) -> str:
+    lines: list[str] = []
+    for r in results:
+        repo = r.get("repo", "?")
+        status = r["status"]
+        if status == "mr_ready":
+            mr = r["mr"]
+            link = mr.get("web_url") or f"MR !{mr['iid']}"
+            lines.append(f"{repo}: Draft MR {link}")
+        elif status == "blocked":
+            lines.append(f"{repo}: risk=blocked — нужен человек")
+        elif status == "needs_human":
+            lines.append(f"{repo}: high-risk — нужен human pre-approval / Red Team")
+        elif status == "self_check_failed":
+            lines.append(f"{repo}: self-check не пройден")
+        else:
+            lines.append(f"{repo}: {status}")
+    return "\n".join(lines)
+
+
 async def execute_plan(
     db: AsyncSession,
     *,
@@ -444,37 +510,43 @@ async def execute_plan(
     bitrix: BitrixClient,
     settings: Settings = settings,
 ) -> dict:
-    """Скачивает архив (от fork_base), гоняет план/код в песочнице, открывает Draft MR."""
+    """План/код/Draft MR по каждому репозиторию задачи (по одному MR на репозиторий)."""
     task = await db.get(TaskState, task_id)
     if task is None or not task.card_snapshot:
         return {"status": "no_task"}
     card = TaskCard(**task.card_snapshot)
 
-    async with checkout_workspace(task_id) as ws:
-        root = await gitlab.fetch_archive(card.target_repo, settings.fork_base_branch, ws)
-        engine = ContextEngine(root)
-        # Синхронизируем граф репозитория (refresh каждый запуск + build при отсутствии).
-        graph_path = await sync_repo_graph(card.target_repo, gitlab=gitlab, settings=settings)
-        graph = GraphifyGraph(graph_path) if graph_path else None
-        result = await run_coding_slice(
-            card, engine=engine, llm=llm, gitlab=gitlab, settings=settings, graph=graph
+    # Контекстные репозитории (read-only) строим один раз — общий контекст для всех целей.
+    context_graphs = await _build_context_graphs(
+        card.context_only_repos, gitlab=gitlab, settings=settings
+    )
+
+    results: list[dict] = []
+    for repo in card.all_repos:
+        results.append(
+            await _plan_one_repo(
+                task_id,
+                repo,
+                card,
+                gitlab=gitlab,
+                llm=llm,
+                settings=settings,
+                context_graphs=context_graphs,
+            )
         )
 
-    status = result["status"]
-    if status == "mr_ready":
-        mr = result["mr"]
-        task.mr_iid = str(mr["iid"])
-        task.source_branch = result["branch"]
+    mr_ready = [r for r in results if r["status"] == "mr_ready"]
+    if mr_ready:
+        task.mr_iid = str(mr_ready[0]["mr"]["iid"])
+        task.source_branch = mr_ready[0]["branch"]
         task.phase = "ci"
-        link = mr.get("web_url") or f"MR !{mr['iid']}"
-        await bitrix.set_status_note(task_id, f"Draft MR создан: {link}")
-    elif status == "blocked":
+    elif any(r["status"] == "blocked" for r in results):
         task.phase = "blocked"
-        await bitrix.set_status_note(task_id, "risk=blocked: автоному нельзя, нужен человек.")
-    elif status == "needs_human":
+    elif any(r["status"] == "needs_human" for r in results):
         task.phase = "needs_human"
-        await bitrix.set_status_note(task_id, "high-risk: нужен human pre-approval / Red Team.")
-    elif status == "self_check_failed":
-        await bitrix.set_status_note(task_id, f"Self-check не пройден: {result['issues']}")
     await db.flush()
-    return result
+    await bitrix.set_status_note(task_id, _plan_status_note(results))
+
+    if len(results) == 1:
+        return results[0]  # обратная совместимость с одним репозиторием
+    return {"status": "multi", "results": results}

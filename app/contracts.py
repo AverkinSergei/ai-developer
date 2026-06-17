@@ -136,7 +136,9 @@ class TaskCard(BaseModel):
     # Ограниченный набор символов: task_id попадает в имя ветки auto-task-{id}.
     task_id: str = Field(pattern=r"^[A-Za-z0-9_:.\-]+$")
     task_type: Literal["feature", "bugfix", "refactor", "research", "review", "security_review"]
-    target_repo: str
+    target_repo: str  # основной репозиторий (где делается MR)
+    target_repos: list[str] = Field(default_factory=list)  # доп. репозитории для изменений (MR)
+    context_repos: list[str] = Field(default_factory=list)  # read-only: только контекст, без MR
     target_branch: str = "dev"
     business_goal: str = ""
     acceptance_criteria: str = ""
@@ -150,3 +152,15 @@ class TaskCard(BaseModel):
     preview: bool | None = None
     security: bool = False
     context_keywords: list[str] = Field(default_factory=list)
+
+    @property
+    def all_repos(self) -> list[str]:
+        """Репозитории, где делаются изменения/MR (основной + дополнительные), без дублей."""
+        ordered = dict.fromkeys([self.target_repo, *self.target_repos])
+        return [r for r in ordered if r]
+
+    @property
+    def context_only_repos(self) -> list[str]:
+        """Read-only репозитории для контекста, исключая те, где делается MR."""
+        change_repos = set(self.all_repos)
+        return [r for r in dict.fromkeys(self.context_repos) if r and r not in change_repos]

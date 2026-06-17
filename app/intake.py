@@ -69,6 +69,8 @@ def build_task_card(raw: dict, text: str = "") -> TaskCard:
         "task_id": raw["task_id"],
         "task_type": raw["task_type"],
         "target_repo": raw["target_repo"],
+        "target_repos": raw.get("target_repos") or [],
+        "context_repos": raw.get("context_repos") or [],
         "target_branch": raw.get("target_branch") or "dev",
         "business_goal": raw.get("business_goal", ""),
         "acceptance_criteria": raw.get("acceptance_criteria", ""),
