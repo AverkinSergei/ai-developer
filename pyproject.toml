@@ -54,3 +54,5 @@ ignore = ["S101"]  # assert разрешён в тестах
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Корень проекта на sys.path, чтобы `app` импортировался без установки пакета (CI --no-root).
+pythonpath = ["."]
