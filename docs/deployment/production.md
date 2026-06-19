@@ -51,7 +51,10 @@ checks.
 Графы кода для Explore & Plan строятся **офлайн** и кладутся в `GRAPH_CACHE_DIR` командой:
 
 ```bash
-ai-developer build-graph namespace/project-a namespace/project-b [--ref main]
+# в контейнере/CI — портативная форма (пакет не установлен при --no-root):
+docker compose run --rm worker python -m app.cli build-graph namespace/project-a [--ref main]
+# локально, где пакет установлен, доступен короткий алиас:
+ai-developer build-graph namespace/project-a namespace/project-b
 ```
 
 Команда скачивает архив репозитория (от `FORK_BASE_BRANCH`), запускает `GRAPH_BUILD_CMD`

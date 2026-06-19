@@ -29,7 +29,7 @@ GitLab (`@ai *`). Распознаются только в начале комм
 
 | Команда | Назначение |
 |---|---|
-| `ai-developer build-graph <repo...> [--ref]` | построить графы кода репозиториев в `GRAPH_CACHE_DIR` |
+| `python -m app.cli build-graph <repo...> [--ref]` | построить графы кода репозиториев в `GRAPH_CACHE_DIR` (алиас `ai-developer build-graph`, если пакет установлен) |
 
 ## Пример раунда
 

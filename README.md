@@ -20,8 +20,11 @@ docker compose up --build     # api :8080 + worker + postgres + redis
 Граф кода целевого репозитория (для Explore & Plan) строится офлайн:
 
 ```bash
-ai-developer build-graph namespace/project   # → GRAPH_CACHE_DIR/<repo>/graph.json
+python -m app.cli build-graph namespace/project   # → GRAPH_CACHE_DIR/<repo>/graph.json
 ```
+
+(`ai-developer build-graph ...` — короткий алиас там, где пакет установлен; `python -m app.cli`
+работает везде, включая контейнер с `--no-root`.)
 
 ## Production
 
