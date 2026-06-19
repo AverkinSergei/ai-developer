@@ -5,9 +5,10 @@ blocked => агент не кодит. high => нужен Red Team и human pre-
 """
 
 from dataclasses import dataclass, field
+from typing import cast
 
 from app.config import Settings
-from app.contracts import TaskCard
+from app.contracts import RiskLevel, TaskCard
 
 _RANK = {"low": 0, "medium": 1, "high": 2, "blocked": 3}
 
@@ -89,7 +90,7 @@ _LOW_ONLY_AREAS = {"docs"}
 
 @dataclass
 class RiskAssessment:
-    risk_level: str
+    risk_level: RiskLevel
     risk_reasons: list[str] = field(default_factory=list)
     red_team_required: bool = False
     human_preapproval_required: bool = False
@@ -156,7 +157,7 @@ def classify_risk(
 
     red_team = level in ("high", "blocked")
     return RiskAssessment(
-        risk_level=level,
+        risk_level=cast(RiskLevel, level),
         risk_reasons=reasons,
         red_team_required=red_team,
         human_preapproval_required=human_preapproval or level == "high",

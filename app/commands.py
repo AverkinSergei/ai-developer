@@ -44,8 +44,9 @@
 """
 
 import re
+from typing import cast
 
-from app.contracts import BriefingCommand
+from app.contracts import BriefingCommand, CommandKind
 
 _AI_ACTIONS = {"status", "stop", "retry", "resolve", "fix", "redteam"}
 
@@ -66,7 +67,8 @@ def parse_command(text: str) -> BriefingCommand | None:
     if low.startswith("@ai"):
         parts = first.split()
         if len(parts) >= 2 and parts[1].lower() in _AI_ACTIONS:
-            return BriefingCommand(kind=f"ai_{parts[1].lower()}", raw=text)
+            kind = cast(CommandKind, f"ai_{parts[1].lower()}")
+            return BriefingCommand(kind=kind, raw=text)
         return None
 
     return None

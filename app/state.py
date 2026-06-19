@@ -26,7 +26,7 @@ class StateStore:
     def __init__(self, url: str | None = None) -> None:
         self._url = url or settings.redis_url
         self._redis: aioredis.Redis | None = None
-        self._unlock = None
+        self._unlock: Any = None  # AsyncScript после init()
 
     def init(self) -> None:
         self._redis = aioredis.from_url(self._url, decode_responses=True)

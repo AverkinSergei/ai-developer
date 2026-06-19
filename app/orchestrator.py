@@ -425,6 +425,8 @@ async def finalize_round(
     await store.transition(session, fsm.COMPLETENESS_CHECK)
 
     task = await db.get(TaskState, task_id)
+    if task is None:
+        return {"status": "noop"}
     card_data = dict(task.card_snapshot or {})
     for dimension, answer in await store.accepted_answers_with_dimension(session.session_id):
         if dimension:
