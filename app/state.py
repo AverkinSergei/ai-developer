@@ -9,6 +9,7 @@ import secrets
 from typing import Any
 
 import redis.asyncio as aioredis
+from redis.commands.core import AsyncScript
 
 from app.config import settings
 
@@ -26,7 +27,7 @@ class StateStore:
     def __init__(self, url: str | None = None) -> None:
         self._url = url or settings.redis_url
         self._redis: aioredis.Redis | None = None
-        self._unlock: Any = None  # AsyncScript после init()
+        self._unlock: AsyncScript | None = None
 
     def init(self) -> None:
         self._redis = aioredis.from_url(self._url, decode_responses=True)
@@ -54,6 +55,8 @@ class StateStore:
         return token if ok else None
 
     async def release_lock(self, key: str, token: str) -> bool:
+        if self._unlock is None:
+            raise RuntimeError("StateStore is not initialized")
         return bool(await self._unlock(keys=[key], args=[token]))
 
     async def force_release(self, key: str) -> None:
