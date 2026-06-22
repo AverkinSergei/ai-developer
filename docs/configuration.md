@@ -46,6 +46,7 @@ docker-compose и MR не попадают.
 | `MAX_TOKENS_PER_TASK` | 200000 | бюджет токенов |
 | `PHASE_TIMEOUT_SEC` | 600 | тайм-аут фазы |
 | `MAX_AI_FIXES` | 3 | лимит автоправок |
+| `MAX_CODE_ITERATIONS` | 3 | попыток генерации кода с прогоном проверок репо |
 | `MAX_CHANGED_FILES_LOW` / `_MEDIUM` | 5 / 15 | повышение риска / pre-approval |
 | `MAX_DIFF_LINES_AUTO` | 500 | разбивка/approval |
 | `RED_TEAM_ENABLED` | true | |

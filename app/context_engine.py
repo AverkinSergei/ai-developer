@@ -57,6 +57,10 @@ class ContextEngine:
         self._root = os.path.realpath(root)
         self._max_read_bytes = max_read_bytes
 
+    @property
+    def root(self) -> str:
+        return self._root
+
     def _resolve(self, path: str) -> str:
         """Возвращает абсолютный realpath внутри корня или бросает SandboxError."""
         if os.path.isabs(path):

@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     max_tokens_per_task: int = 200_000
     phase_timeout_sec: int = 600
     max_ai_fixes: int = 3
+    max_code_iterations: int = 3  # попыток генерации с прогоном проверок репо
     max_changed_files_low: int = 5  # выше -> risk_level=medium
     max_changed_files_medium: int = 15  # выше -> human pre-approval
     max_diff_lines_auto: int = 500  # выше -> разбивка/approval

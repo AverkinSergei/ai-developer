@@ -24,6 +24,7 @@ from app.go_authorizer import GoContext, GoDecision, authorize
 from app.graph_build import sync_repo_graph
 from app.intake import VALID_TASK_TYPES, build_task_card, missing_required_fields
 from app.planning import explore_and_plan
+from app.repo_config import load_repo_config
 from app.repo_planner import classify_repos
 from app.workspace import checkout_workspace
 
@@ -203,12 +204,23 @@ def _clean(s: str) -> str:
     return " ".join(str(s).split())
 
 
-def _mr_description(card: TaskCard, gate: RiskPlanGate) -> str:
-    """Описание MR: summary, acceptance, risk, тест-план, doc_impact, rollback, audit."""
+def _mr_description(
+    card: TaskCard,
+    gate: RiskPlanGate,
+    *,
+    verified: bool = False,
+    checks: dict[str, str] | None = None,
+) -> str:
+    """Описание MR: summary, acceptance, risk, тест-план, doc_impact, verification, rollback."""
     doc_line = f"**Doc impact:** {gate.doc_impact}"
     if gate.doc_impact == "no":
         doc_line += f" ({_clean(gate.doc_skip_reason or '')})"
     test_lines = [f"- {_clean(t)}" for t in gate.test_plan] or ["- (none)"]
+    checks = checks or {}
+    verify_line = (
+        "✅ проверки репо зелёные" if verified else "⚠ не верифицировано (нет/пропущены проверки)"
+    )
+    checks_str = ", ".join(f"{n}={s}" for n, s in checks.items()) or "—"
     lines = [
         f"## {card.task_type}: {card.task_id}",
         "",
@@ -216,6 +228,7 @@ def _mr_description(card: TaskCard, gate: RiskPlanGate) -> str:
         f"**Acceptance criteria:** {_clean(card.acceptance_criteria) or '-'}",
         f"**Risk level:** {gate.risk_level}",
         doc_line,
+        f"**Verification:** {verify_line} ({checks_str})",
         "",
         "### Test plan",
         *test_lines,
@@ -251,7 +264,10 @@ async def run_coding_slice(
     if gate.human_preapproval_required or gate.red_team_required:
         return {"status": "needs_human", "gate": gate}
 
-    coding = await generate_changes(card, gate, llm)
+    repo_config = load_repo_config(engine.root)
+    coding = await generate_changes(
+        card, gate, llm, checkout_root=engine.root, repo_config=repo_config
+    )
     if coding.issues:
         return {"status": "self_check_failed", "issues": coding.issues, "gate": gate}
 
@@ -270,9 +286,16 @@ async def run_coding_slice(
             branch,
             card.target_branch,
             f"Draft: {card.task_type} {card.task_id}",
-            _mr_description(card, gate),
+            _mr_description(card, gate, verified=coding.verified, checks=coding.checks),
         )
-    return {"status": "mr_ready", "mr": mr, "gate": gate, "branch": branch}
+    return {
+        "status": "mr_ready",
+        "mr": mr,
+        "gate": gate,
+        "branch": branch,
+        "verified": coding.verified,
+        "checks": coding.checks,
+    }
 
 
 async def finalize_mr(
