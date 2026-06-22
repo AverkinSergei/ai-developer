@@ -62,6 +62,10 @@ docker-compose и MR не попадают.
 | `GRAPH_BUILD_CMD` | `graphify {path} --update --no-viz` — команда построения графа (`{path}` = корень чекаута) |
 | `GRAPH_AUTO_BUILD` | `true` — построить граф при первом обращении, если в кэше его нет |
 | `GRAPH_REFRESH_ON_TASK` | `true` — обновлять граф (`--update`) на каждом запуске для репо задачи |
+| `SANDBOX_ISOLATION_CONFIRMED` | `false` — **fail-closed**: проверки репо не запускаются, пока не подтверждена изоляция (контейнер без сети + эфемерный checkout). Включать только в изолированном окружении |
+| `SANDBOX_ALLOWED_BINARIES` | `[]` — доп. бинари к встроенному allowlist проверок |
+| `SANDBOX_MAX_OUTPUT_KB` | `256` — лимит буфера вывода проверки (защита от OOM) |
+| `SANDBOX_PATH` | `""` — закреплённый PATH для дочерних проверок (пусто = унаследовать) |
 | `WEBHOOK_MAX_BODY_MB` | 5 |
 | `METRICS_ENABLED` | true |
 | `LOG_REDACTION_ENABLED` | true |

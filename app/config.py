@@ -80,6 +80,14 @@ class Settings(BaseSettings):
     graph_cache_dir: str = ""
     # Команда построения графа; {path} подставляется корнем чекаута репозитория.
     graph_build_cmd: str = "graphify {path} --update --no-viz"
+    # Песочница проверок: доп. разрешённые бинари (к встроенному allowlist) и лимит вывода.
+    sandbox_allowed_binaries: list[str] = Field(default_factory=list)
+    sandbox_max_output_kb: int = 256
+    # Закреплённый PATH для дочерних проверок (пусто = унаследовать PATH процесса).
+    sandbox_path: str = ""
+    # Fail-closed: проверки не запускаются, пока оператор не подтвердит изоляцию
+    # (контейнер без сети + эфемерный checkout). Включать только в изолированном окружении.
+    sandbox_isolation_confirmed: bool = False
     # Строить граф автоматически при первом обращении, если в кэше его нет.
     graph_auto_build: bool = True
     # Обновлять граф (graphify --update) на каждом запуске задачи для её репозитория.

@@ -49,6 +49,21 @@ Prometheus-метрики: `webhooks_total`, `go_decisions_total`, `phase_errors
 
 `make_maintainer_resolver` — резолвер maintainer/owner-роли для авторизации high-risk `/go`.
 
+## `repo_config`
+
+`load_repo_config(checkout_root)` — читает `.ai-agent.yml` из корня репо (команды
+`test/lint/typecheck`, `security`, `docs`, `preview`); fail-safe (нет файла/битый YAML →
+безопасный дефолт). Команды из конфига — **недоверенный ввод** (файл в репо), исполняются
+только через `sandbox_exec`.
+
+## `sandbox_exec`
+
+`run_check`/`run_checks` — запуск проверок репо в изоляции: `shell=False`, минимальное
+окружение без секретов сервиса, своя группа процессов (`killpg` по тайм-ауту), потоковое
+чтение вывода с лимитом памяти, allowlist бинарей (guardrail). Fail-closed: без
+`SANDBOX_ISOLATION_CONFIRMED` ничего не запускает. Запуск тестов репо = исполнение
+произвольного кода, поэтому реальная изоляция (контейнер без сети) — обязательна в production.
+
 ## `graph_build`
 
 Построение/обновление графа кода: `build_repo_graph` (checkout → `GRAPH_BUILD_CMD` → копия в

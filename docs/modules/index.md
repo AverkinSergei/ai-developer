@@ -9,7 +9,7 @@
 | Риск, план, код | `risk`, `context_engine`, `planning`, `coding` | [Риск, план, код](coding.md) |
 | Гейты | `reviewer`, `redteam`, `gates`, `ci`, `dod`, `preview` | [Гейты](gates.md) |
 | Research | `research` | [Research](research.md) |
-| Инфраструктура | `config`, `state`, `db`, `audit`, `metrics`, `workspace`, `contracts`, `clients/*`, `gitlab_roles`, `graph_build`, `cli` | [Инфраструктура](infrastructure.md) |
+| Инфраструктура | `config`, `state`, `db`, `audit`, `metrics`, `workspace`, `contracts`, `clients/*`, `gitlab_roles`, `graph_build`, `cli`, `repo_config`, `sandbox_exec` | [Инфраструктура](infrastructure.md) |
 
 ## Поток данных между подсистемами
 
