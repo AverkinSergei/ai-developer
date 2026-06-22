@@ -21,7 +21,7 @@ GitLab (`@ai *`). Распознаются только в начале комм
 | `@ai status` | любой участник | краткий статус фазы и блокеров |
 | `@ai stop` | постановщик/reviewer/maintainer | остановить агента и снять lock |
 | `@ai retry` | постановщик/reviewer | перезапустить упавшую фазу |
-| `@ai resolve` | reviewer/maintainer | разрешить конфликт MR |
+| `@ai resolve` | reviewer/maintainer | помощь по конфликту MR — маршрутизация человеку (полное 3-way слияние не выполняется) |
 | `@ai fix` | reviewer/maintainer | исправить замечания в MR в рамках лимитов |
 | `@ai redteam` | reviewer/maintainer/security | принудительно запустить Red Team |
 

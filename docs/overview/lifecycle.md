@@ -12,7 +12,8 @@
   → Risk scoring                   (risk)
   → Explore & Plan                 (context_engine, planning)
   → Plan Gate
-  → Кодинг / Research              (coding / research)
+  → Кодинг с прогоном проверок репо (coding: цикл до verified)
+  → Бюджет scope                   (scope: малый дифф → Ready, крупный → Draft)
   → Commit + Draft MR              (gitlab_client, orchestrator)
   → CI/CD checks                   (ci)
   → Независимый AI-review          (reviewer)
@@ -33,7 +34,8 @@
 | Risk scoring | классификатор | `risk_level`, `red_team_required` | да для high/blocked |
 | Explore & Plan | Coder | план, тест-план, doc impact | да |
 | Plan Gate | политика / человек для high | разрешение на кодинг | да |
-| Coding | Coder | код + docs | да при ошибке |
+| Coding | Coder | код + docs, прогнанные проверки (`verified`) | да при ошибке |
+| Scope budget | `scope` | малый дифф → авто Ready; крупный → Draft | да для авто-flip |
 | CI/CD | GitLab CI | тесты, линт, security | да для обязательных |
 | AI-review | Reviewer | line-комментарии / вердикт | да |
 | Red Team | Red Team | PASS/FAIL/NEED_HUMAN | да |
