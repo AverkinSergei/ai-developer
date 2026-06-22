@@ -16,7 +16,7 @@ from app.clients.graph import GraphifyGraph
 from app.clients.protocols import BitrixClient, GitLabClient, GraphIndex, LLMClient
 from app.coding import generate_changes, run_fix_loop
 from app.config import Settings, settings
-from app.context_engine import ContextEngine
+from app.context_engine import ContextEngine, SandboxError
 from app.contracts import BriefingCommand, RiskPlanGate, TaskCard
 from app.db.models import TaskState
 from app.gates import run_review_gates
@@ -26,6 +26,7 @@ from app.intake import VALID_TASK_TYPES, build_task_card, missing_required_field
 from app.planning import explore_and_plan
 from app.repo_config import load_repo_config
 from app.repo_planner import classify_repos
+from app.scope import ScopeVerdict, assess_scope
 from app.workspace import checkout_workspace
 
 # Без этих полей задачу нельзя даже завести; остальное добирает брифинг.
@@ -243,6 +244,17 @@ def _mr_description(
     return "\n".join(lines)
 
 
+def _read_originals(engine: ContextEngine, paths: list[str]) -> dict[str, str]:
+    """Содержимое файлов до правок (пусто для новых) — база для диффа scope."""
+    originals: dict[str, str] = {}
+    for path in paths:
+        try:
+            originals[path] = engine.read_file(path)
+        except (SandboxError, FileNotFoundError, OSError):
+            originals[path] = ""
+    return originals
+
+
 async def run_coding_slice(
     card: TaskCard,
     *,
@@ -264,12 +276,17 @@ async def run_coding_slice(
     if gate.human_preapproval_required or gate.red_team_required:
         return {"status": "needs_human", "gate": gate}
 
+    # Снимаем оригиналы планируемых файлов до записи: нужны для честного диффа scope.
+    originals = _read_originals(engine, [c.path for c in gate.changes])
+
     repo_config = load_repo_config(engine.root)
     coding = await generate_changes(
         card, gate, llm, checkout_root=engine.root, repo_config=repo_config
     )
     if coding.issues:
         return {"status": "self_check_failed", "issues": coding.issues, "gate": gate}
+
+    scope = assess_scope(originals, coding.files, coding.deletions, settings=settings)
 
     branch = f"auto-task-{card.task_id}"
     # Ветка отпочковывается от fork_base_branch (main), а MR нацелен в target_branch (dev).
@@ -296,6 +313,7 @@ async def run_coding_slice(
         "verified": coding.verified,
         "checks": coding.checks,
         "files": coding.files,
+        "scope": scope,
     }
 
 
@@ -538,12 +556,15 @@ async def _apply_gates(
     test_results = ", ".join(f"{n}={s}" for n, s in checks.items()) or "no checks"
     gr = await run_review_gates(card, result["gate"], diff, test_results, "", llm)
 
-    ready = bool(result.get("verified")) and not gr.blocked
+    scope: ScopeVerdict | None = result.get("scope")
+    within_scope = scope.within_budget if scope is not None else True
+    ready = bool(result.get("verified")) and not gr.blocked and within_scope
     await finalize_mr(card, result["mr"], gitlab, ready=ready)
 
     result["review_verdict"] = gr.review.verdict
     result["redteam_verdict"] = gr.redteam.verdict if gr.redteam else None
     result["gates_blocked"] = gr.blocked
+    result["within_scope"] = within_scope
     result["ready_for_review"] = ready
 
 
@@ -564,9 +585,13 @@ def _plan_summary(task_id: str, results: list[dict]) -> str:
             verify = "verified" if r.get("verified") else "unverified"
             review = r.get("review_verdict", "-")
             rt = r.get("redteam_verdict") or "n/a"
+            sc = r.get("scope")
+            scope_note = ""
+            if sc is not None and not sc.within_budget:
+                scope_note = f"; scope превышен ({'; '.join(sc.reasons)}) — нужен человек"
             lines.append(
                 f"- {repo}: {state} MR {link} (ветка {r.get('branch')}{risk}; "
-                f"{verify}; review={review}; redteam={rt})"
+                f"{verify}; review={review}; redteam={rt}{scope_note})"
             )
         elif status == "blocked":
             lines.append(f"- {repo}: risk=blocked — автоному нельзя, нужен человек")

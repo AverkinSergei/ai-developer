@@ -80,3 +80,33 @@ async def test_review_block_keeps_draft():
     assert res["gates_blocked"] is True
     assert res["ready_for_review"] is False
     assert gl.mrs[0]["draft"] is True  # блокирующий review -> остаётся Draft
+
+
+async def test_oversized_diff_stays_draft_despite_green():
+    # verified + review PASS, но дифф больше бюджета -> авто-flip снят, смотрит человек.
+    gl = _gitlab()
+    plan = json.dumps(
+        {
+            "changes": [{"path": "app/feature.py", "action": "create", "rationale": "x"}],
+            "doc_impact": "no",
+            "doc_skip_reason": "internal",
+        }
+    )
+    big = "\n".join(f"x{i} = {i}" for i in range(40)) + "\n"  # 40 строк
+    code = json.dumps({"app/feature.py": big})
+    review = json.dumps({"verdict": "PASS", "comments": []})
+    res = await _plan_one_repo(
+        "B24-1",
+        "grp/a",
+        _card(),
+        gitlab=gl,
+        llm=FakeLLM(responses=[plan, code, review]),
+        settings=Settings(max_diff_lines_auto=10),
+        context_graphs=[],
+    )
+    assert res["verified"] is True
+    assert res["review_verdict"] == "PASS"
+    assert res["gates_blocked"] is False
+    assert res["within_scope"] is False
+    assert res["ready_for_review"] is False
+    assert gl.mrs[0]["draft"] is True  # scope превышен -> остаётся Draft
