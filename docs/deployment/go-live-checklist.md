@@ -4,7 +4,7 @@
 
 - [ ] Выделенный сервер/VM; ресурсы по профилю (см. [Требования](requirements.md)).
 - [ ] `docker-compose.prod.yml` поднят; `api`/`worker`/`postgres`/`redis`/`proxy` healthy.
-- [ ] Caddy с реальным доменом и TLS; наружу открыты только вебхуки и health.
+- [ ] Caddy с TLS (домен через ACME либо self-signed по IP — см. [Выделенный сервер по IP](dedicated-ip.md)); наружу открыты только вебхуки и health.
 - [ ] Автоматический daily backup PostgreSQL + retention.
 - [ ] Prometheus скрейпит `/metrics`; алерты настроены.
 
@@ -26,7 +26,9 @@
 
 ## Эксплуатационный долг (доделать перед полной автономностью)
 
-- [ ] Реальная логика `run_fix` (по MR-diff + findings reviewer) и `run_resolve` (conflict
-      resolution) — сейчас стабы.
+- [ ] Полное разрешение конфликтов MR: `run_resolve` сейчас ограниченный хендлер —
+      маршрутизирует к человеку, 3-way слияние не выполняется (нужен git-checkout вместо
+      архива). `run_fix` уже реализован (агентный цикл правок ветки).
+- [ ] Живой пилот на 10–20 реальных тикетах + go/no-go-метрики.
 - [ ] Нагрузочный замер на целевом `WORKER_CONCURRENCY`.
 - [ ] Дашборды Grafana/Loki поверх `/metrics` и логов.

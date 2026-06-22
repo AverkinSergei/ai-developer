@@ -26,8 +26,11 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec api alembic
 
 ## Caddyfile
 
-Замените `example.com` на реальный домен — Caddy получит TLS автоматически. Наружу открыты
-только вебхуки и health-пробы; остальное — 404.
+По умолчанию `Caddyfile` настроен на **self-signed TLS по IP** (`https://10.0.0.111`,
+`tls internal`, `bind 0.0.0.0`) — для развёртывания без домена, см. [Выделенный сервер по
+IP](dedicated-ip.md). Для домена замените адрес сайта на реальный домен и уберите
+`bind`/`tls internal` — Caddy получит доверенный сертификат автоматически (ACME). Наружу
+открыты только вебхуки и health-пробы; остальное — 404.
 
 ## Миграции и backup
 
