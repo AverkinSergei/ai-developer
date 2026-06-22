@@ -41,4 +41,9 @@ request-потоке не выполняется — только быстрый
 - `execute_plan` — проходит по всем change-репозиториям задачи (`all_repos`), делает **по
   Draft MR на каждый**, строит общие контекстные графы (`context_only_repos`) и публикует
   **сводный комментарий `[AI_MR_SUMMARY]`** по всем MR в Б24;
-- `finalize_mr` — снятие Draft и назначение reviewer (merge — за человеком).
+- `_apply_gates` — после Draft MR гонит независимый **AI-review + Red Team** (`run_review_gates`);
+  доверие держим на исполняемых проверках (`verified`), review/Red Team — блокирующее второе
+  мнение;
+- `finalize_mr` — flip Draft→Ready и назначение reviewer, когда `ready = verified and not
+  blocked`; при блокировке гейтом MR остаётся Draft. Merge — всегда за человеком (полный DoD,
+  включая approve, — его гейт).

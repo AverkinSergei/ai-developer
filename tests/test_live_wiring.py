@@ -147,12 +147,16 @@ async def test_execute_plan_creates_draft_mr(db_session, monkeypatch, tmp_path):
         }
     )
     code = json.dumps({"app/feature.py": "def feature():\n    return 1\n"})
-    llm = FakeLLM(responses=[plan, code])
+    review = json.dumps({"verdict": "PASS", "comments": []})
+    llm = FakeLLM(responses=[plan, code, review])  # plan -> code -> AI-review
     bitrix = FakeBitrix()
 
     res = await execute_plan(db_session, task_id="B24-1", gitlab=gl, llm=llm, bitrix=bitrix)
     assert res["status"] == "mr_ready"
+    # без .ai-agent.yml проверок нет -> unverified -> MR остаётся Draft (смотрит человек)
     assert res["mr"]["draft"] is True
+    assert res["review_verdict"] == "PASS"
+    assert res["ready_for_review"] is False
     assert gl.branch_refs[("grp/repo", "auto-task-B24-1")] == "main"
     task = await db_session.get(TaskState, "B24-1")
     assert task.mr_iid == res["mr"]["iid"]

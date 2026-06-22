@@ -35,6 +35,7 @@ def _card_snapshot(**over):
 
 
 def _plan_code():
+    # На репо: plan -> code -> AI-review (Red Team не триггерится для backend/medium).
     plan = json.dumps(
         {
             "changes": [{"path": "app/feature.py", "action": "create", "rationale": "x"}],
@@ -45,7 +46,8 @@ def _plan_code():
         }
     )
     code = json.dumps({"app/feature.py": "def f():\n    return 1\n"})
-    return [plan, code]
+    review = json.dumps({"verdict": "PASS", "comments": []})
+    return [plan, code, review]
 
 
 async def test_multi_repo_creates_mr_per_repo(db_session, monkeypatch, tmp_path):

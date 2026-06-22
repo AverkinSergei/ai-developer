@@ -1,7 +1,6 @@
 from app.clients.fakes import FakeBitrix, FakeGitLab, FakeLLM
 from app.config import Settings
 from app.contracts import RiskPlanGate, TaskCard
-from app.dod import DoDResult
 from app.orchestrator import finalize_mr
 from app.preview import preview_required
 from app.research import run_research
@@ -41,21 +40,19 @@ def test_preview_required_high_risk_frontend_when_enabled():
     assert not preview_required(_card(affected_area=["frontend"]), _gate("medium"), s)
 
 
-async def test_finalize_mr_ready_when_dod_met():
+async def test_finalize_mr_ready_when_gates_pass():
     gl = FakeGitLab()
     mr = await gl.create_draft_mr("grp/repo", "auto-task-1", "dev", "t", "d")
     card = _card(task_type="feature", reviewer="u-rev")
-    res = await finalize_mr(card, mr, DoDResult(met=True, unmet=[]), gl)
-    assert res["status"] == "ready_for_human"
+    res = await finalize_mr(card, mr, gl, ready=True)
+    assert res["status"] == "ready_for_review"
     assert gl.mrs[0]["draft"] is False
     assert gl.mrs[0]["reviewer_id"] == "u-rev"
 
 
-async def test_finalize_mr_stays_draft_when_unmet():
+async def test_finalize_mr_stays_draft_when_not_ready():
     gl = FakeGitLab()
     mr = await gl.create_draft_mr("grp/repo", "auto-task-1", "dev", "t", "d")
-    res = await finalize_mr(
-        _card(task_type="feature"), mr, DoDResult(met=False, unmet=["нет approve"]), gl
-    )
+    res = await finalize_mr(_card(task_type="feature"), mr, gl, ready=False)
     assert res["status"] == "draft"
     assert gl.mrs[0]["draft"] is True

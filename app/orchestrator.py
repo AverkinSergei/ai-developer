@@ -19,7 +19,7 @@ from app.config import Settings, settings
 from app.context_engine import ContextEngine
 from app.contracts import BriefingCommand, RiskPlanGate, TaskCard
 from app.db.models import TaskState
-from app.dod import DoDResult
+from app.gates import run_review_gates
 from app.go_authorizer import GoContext, GoDecision, authorize
 from app.graph_build import sync_repo_graph
 from app.intake import VALID_TASK_TYPES, build_task_card, missing_required_fields
@@ -295,20 +295,26 @@ async def run_coding_slice(
         "branch": branch,
         "verified": coding.verified,
         "checks": coding.checks,
+        "files": coding.files,
     }
 
 
 async def finalize_mr(
     card: TaskCard,
     mr: dict,
-    dod: DoDResult,
     gitlab: GitLabClient,
+    *,
+    ready: bool,
 ) -> dict:
-    """При выполнении DoD снимает Draft и назначает reviewer; merge — за человеком."""
-    if dod.met:
+    """Снимает Draft и назначает reviewer, если авто-гейты пройдены; merge — за человеком.
+
+    `ready` = проверки репо зелёные И review/Red Team не блокируют. Полный DoD (включая
+    approve человека) — отдельный merge-гейт человека, не для авто-flip.
+    """
+    if ready:
         await gitlab.mark_mr_ready(card.target_repo, mr["iid"], card.reviewer)
-        return {"status": "ready_for_human", "mr": mr}
-    return {"status": "draft", "unmet": dod.unmet}
+        return {"status": "ready_for_review", "mr": mr}
+    return {"status": "draft", "mr": mr}
 
 
 def _normalize_bitrix(raw: dict, field_map: dict[str, str]) -> dict:
@@ -513,8 +519,32 @@ async def _plan_one_repo(
             graph=graph,
             context_graphs=context_graphs,
         )
+    if result["status"] == "mr_ready":
+        await _apply_gates(repo_card, result, llm=llm, gitlab=gitlab)
     result["repo"] = repo
     return result
+
+
+async def _apply_gates(
+    card: TaskCard, result: dict, *, llm: LLMClient, gitlab: GitLabClient
+) -> None:
+    """Независимый AI-review + Red Team по diff; flip Draft→Ready при зелёных гейтах.
+
+    Доверие держим на исполняемых проверках (verified); review/Red Team — блокирующее
+    второе мнение. При блокировке гейтом MR остаётся Draft.
+    """
+    diff = "\n".join(f"--- {p}\n{c}" for p, c in result.get("files", {}).items())
+    checks = result.get("checks", {})
+    test_results = ", ".join(f"{n}={s}" for n, s in checks.items()) or "no checks"
+    gr = await run_review_gates(card, result["gate"], diff, test_results, "", llm)
+
+    ready = bool(result.get("verified")) and not gr.blocked
+    await finalize_mr(card, result["mr"], gitlab, ready=ready)
+
+    result["review_verdict"] = gr.review.verdict
+    result["redteam_verdict"] = gr.redteam.verdict if gr.redteam else None
+    result["gates_blocked"] = gr.blocked
+    result["ready_for_review"] = ready
 
 
 def _plan_summary(task_id: str, results: list[dict]) -> str:
@@ -530,7 +560,14 @@ def _plan_summary(task_id: str, results: list[dict]) -> str:
         if status == "mr_ready":
             mr = r["mr"]
             link = mr.get("web_url") or f"MR !{mr['iid']}"
-            lines.append(f"- {repo}: Draft MR {link} (ветка {r.get('branch')}{risk})")
+            state = "Ready" if r.get("ready_for_review") else "Draft"
+            verify = "verified" if r.get("verified") else "unverified"
+            review = r.get("review_verdict", "-")
+            rt = r.get("redteam_verdict") or "n/a"
+            lines.append(
+                f"- {repo}: {state} MR {link} (ветка {r.get('branch')}{risk}; "
+                f"{verify}; review={review}; redteam={rt})"
+            )
         elif status == "blocked":
             lines.append(f"- {repo}: risk=blocked — автоному нельзя, нужен человек")
         elif status == "needs_human":
