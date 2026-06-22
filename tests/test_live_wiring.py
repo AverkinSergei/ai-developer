@@ -6,7 +6,13 @@ from app.clients.fakes import FakeBitrix, FakeGitLab, FakeLLM
 from app.config import Settings, settings
 from app.contracts import BriefingCommand
 from app.db.models import TaskState
-from app.orchestrator import execute_plan, finalize_round, handle_answers, intake_task
+from app.orchestrator import (
+    execute_plan,
+    finalize_round,
+    handle_answers,
+    intake_task,
+    run_self_fix,
+)
 
 FIELD_MAP = {
     "task_type": "ufType",
@@ -202,3 +208,35 @@ async def test_briefing_answer_advances_via_worker_path(db_session):
     )
     res = await finalize_round(db_session, task_id="B24-1", bitrix=FakeBitrix())
     assert res["status"] == "ready_for_go"
+
+
+async def test_self_fix_repairs_and_commits(db_session, monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "agent_tmp_dir", str(tmp_path))
+    monkeypatch.setattr(settings, "sandbox_isolation_confirmed", True)
+    # Тест репо зелёный, если в app/feature.py есть OK. JSON — валидный YAML-скаляр.
+    check_cmd = (
+        "python3 -c \"import sys; sys.exit(0 if 'OK' in open('app/feature.py').read() else 1)\""
+    )
+    agent_yml = f"commands:\n  test: {json.dumps(check_cmd)}\n"
+    db_session.add(
+        TaskState(
+            task_id="B24-1",
+            repo="grp/repo",
+            target_branch="dev",
+            task_type="feature",
+            author_user_id="u-a",
+            mr_iid="7",
+            source_branch="auto-task-B24-1",
+            card_snapshot=_full_card_dict(),
+        )
+    )
+    await db_session.flush()
+
+    gl = FakeGitLab(files={"grp/repo": {"app/feature.py": "x = 1\n", ".ai-agent.yml": agent_yml}})
+    llm = FakeLLM(responses=[json.dumps({"app/feature.py": "x = 1  # OK\n"})])
+
+    res = await run_self_fix(
+        db_session, repo="grp/repo", mr_iid="7", gitlab=gl, llm=llm, bitrix=FakeBitrix()
+    )
+    assert res["status"] == "fixed"
+    assert any(c["branch"] == "auto-task-B24-1" and "fix:" in c["message"] for c in gl.commits)

@@ -18,6 +18,7 @@ from app.db.models import (
     BriefingSession,
     GoAuthorizationEvent,
     OutboxEvent,
+    TaskState,
 )
 
 
@@ -239,6 +240,10 @@ class BriefingStore:
         self.db.add(ev)
         await self.db.flush()
         return ev
+
+    async def get_task_by_mr(self, mr_iid: str) -> TaskState | None:
+        stmt = select(TaskState).where(TaskState.mr_iid == mr_iid).limit(1)
+        return (await self.db.execute(stmt)).scalar_one_or_none()
 
     async def go_event_exists(self, event_id: str) -> bool:
         stmt = select(GoAuthorizationEvent.id).where(GoAuthorizationEvent.event_id == event_id)

@@ -14,7 +14,7 @@ from app.briefing import render_round_comment, template_questions
 from app.briefing_store import BriefingStore
 from app.clients.graph import GraphifyGraph
 from app.clients.protocols import BitrixClient, GitLabClient, GraphIndex, LLMClient
-from app.coding import generate_changes
+from app.coding import generate_changes, run_fix_loop
 from app.config import Settings, settings
 from app.context_engine import ContextEngine
 from app.contracts import BriefingCommand, RiskPlanGate, TaskCard
@@ -628,3 +628,61 @@ async def execute_plan(
     if len(results) == 1:
         return results[0]  # обратная совместимость с одним репозиторием
     return {"status": "multi", "results": results}
+
+
+async def run_self_fix(
+    db: AsyncSession,
+    *,
+    repo: str,
+    mr_iid: str,
+    gitlab: GitLabClient,
+    llm: LLMClient,
+    bitrix: BitrixClient,
+    settings: Settings = settings,
+) -> dict:
+    """Петля самоисправления: чинит падающие проверки в ветке auto-task-* MR."""
+    store = BriefingStore(db)
+    task = await store.get_task_by_mr(mr_iid)
+    if task is None or not task.card_snapshot:
+        return {"status": "no_task"}
+    card = TaskCard(**task.card_snapshot)
+    branch = task.source_branch or f"auto-task-{task.task_id}"
+
+    async with checkout_workspace(f"fix-{task.task_id}") as ws:
+        root = await gitlab.fetch_archive(repo, branch, ws)
+        repo_config = load_repo_config(root)
+        coding = await run_fix_loop(card, checkout_root=root, repo_config=repo_config, llm=llm)
+
+    if not coding.files and coding.verified:
+        await bitrix.set_status_note(task.task_id, "Проверки зелёные — исправлять нечего.")
+        return {"status": "nothing_to_fix"}
+    if coding.issues or not coding.verified:
+        await bitrix.set_status_note(task.task_id, "Не удалось автоисправить — нужен человек.")
+        return {"status": "unfixed", "issues": coding.issues}
+
+    await gitlab.commit_files(repo, branch, f"fix: {card.task_id}", coding.files)
+    await bitrix.set_status_note(
+        task.task_id, f"Автоисправление применено; проверки: {coding.checks}."
+    )
+    return {"status": "fixed", "checks": coding.checks}
+
+
+async def run_conflict_resolution(
+    db: AsyncSession,
+    *,
+    repo: str,
+    mr_iid: str,
+    bitrix: BitrixClient,
+) -> dict:
+    """Реакция на @ai resolve. 3-way merge через tar-архивы не выполняется (нужен git-checkout),
+    поэтому конфликт передаётся человеку с понятной пометкой; high-risk — тем более."""
+    store = BriefingStore(db)
+    task = await store.get_task_by_mr(mr_iid)
+    if task is None:
+        return {"status": "no_task"}
+    await bitrix.set_status_note(
+        task.task_id,
+        "Конфликт MR: авторазрешение ограничено (нужен git-checkout). Разрешите вручную; "
+        "high-risk файлы — только человек.",
+    )
+    return {"status": "needs_human_resolve"}

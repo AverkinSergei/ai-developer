@@ -26,6 +26,12 @@ _CODE_SYSTEM = (
     "исправь их, сохранив исходную задачу."
 )
 
+_FIX_SYSTEM = (
+    "Ты исправляешь падающие проверки репозитория (lint/typecheck/test), сохраняя исходную "
+    "задачу. Верни JSON {путь: полное_новое_содержимое} только для файлов, которые нужно "
+    "изменить. Запрещено отключать тесты, менять thresholds или удалять security-проверки."
+)
+
 
 @dataclass
 class CodingResult:
@@ -157,6 +163,70 @@ async def generate_changes(
         files=files,
         deletions=deletions,
         issues=issues,
+        verified=False,
+        iterations=max_iter,
+        checks=last_checks,
+    )
+
+
+async def _fix_generate(card: TaskCard, feedback: str, llm: LLMClient) -> dict[str, str]:
+    payload = {
+        "task_id": card.task_id,
+        "acceptance_criteria": card.acceptance_criteria,
+        "check_failures": feedback,
+    }
+    resp = await llm.complete(
+        system=_FIX_SYSTEM,
+        messages=[{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+    )
+    try:
+        files = json.loads(resp.text)
+        if not isinstance(files, dict):
+            files = {}
+    except (json.JSONDecodeError, TypeError):
+        files = {}
+    return {str(k): str(v) for k, v in files.items()}
+
+
+async def run_fix_loop(
+    card: TaskCard,
+    *,
+    checkout_root: str,
+    repo_config: RepoConfig,
+    llm: LLMClient,
+    max_iterations: int | None = None,
+) -> CodingResult:
+    """Самоисправление существующей ветки: гоняет проверки репо и чинит их до зелёного."""
+    max_iter = max_iterations or settings.max_code_iterations
+    commands = _enabled_commands(repo_config)
+
+    results = await run_checks(commands, checkout_root)
+    runnable = [r for r in results.values() if r.status in ("passed", "failed", "timeout")]
+    failing = [r for r in runnable if r.status in ("failed", "timeout")]
+    last_checks = {name: res.status for name, res in results.items()}
+    if not failing:
+        # Чинить нечего (или проверять нечем).
+        return CodingResult(verified=bool(runnable), iterations=0, checks=last_checks)
+
+    files: dict[str, str] = {}
+    feedback = _format_failures(results)
+    for attempt in range(1, max_iter + 1):
+        files = await _fix_generate(card, feedback, llm)
+        unsafe = [p for p in files if not is_safe_repo_path(p)]
+        if unsafe or not files:
+            feedback = f"верни безопасные пути файлов; небезопасно: {unsafe}"
+            continue
+        _write_files(checkout_root, files)
+        results = await run_checks(commands, checkout_root)
+        last_checks = {name: res.status for name, res in results.items()}
+        failing = [r for r in results.values() if r.status in ("failed", "timeout")]
+        if not failing:
+            return CodingResult(files=files, verified=True, iterations=attempt, checks=last_checks)
+        feedback = _format_failures(results)
+
+    return CodingResult(
+        files=files,
+        issues=["fix failed after iterations"],
         verified=False,
         iterations=max_iter,
         checks=last_checks,

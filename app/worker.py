@@ -16,7 +16,14 @@ from app.clients.llm import OpenAILLM
 from app.commands import parse_command
 from app.config import settings
 from app.db.base import sessionmanager
-from app.orchestrator import execute_plan, finalize_round, handle_answers, intake_task
+from app.orchestrator import (
+    execute_plan,
+    finalize_round,
+    handle_answers,
+    intake_task,
+    run_conflict_resolution,
+    run_self_fix,
+)
 
 
 def _redis_settings() -> RedisSettings:
@@ -87,13 +94,23 @@ async def run_command(
 
 
 async def run_fix(ctx: dict[str, Any], repo: str, mr_iid: str, trigger: str) -> None:
-    """Самоисправление по упавшему CI / @ai fix. Реальная логика — на интеграции."""
-    log_event("run_fix_stub", repo=repo, mr_iid=mr_iid, trigger=trigger)
+    """Самоисправление по упавшему CI / @ai fix: чинит проверки в ветке auto-task-*."""
+    async with sessionmanager.session() as db:
+        result = await run_self_fix(
+            db, repo=repo, mr_iid=mr_iid, gitlab=GitLab(), llm=OpenAILLM(), bitrix=Bitrix()
+        )
+        await db.commit()
+    log_event(
+        "run_fix_done", repo=repo, mr_iid=mr_iid, trigger=trigger, status=result.get("status")
+    )
 
 
 async def run_resolve(ctx: dict[str, Any], repo: str, mr_iid: str) -> None:
-    """Разрешение конфликта MR в ветке auto-task-*. Реальная логика — на интеграции."""
-    log_event("run_resolve_stub", repo=repo, mr_iid=mr_iid)
+    """Реакция на @ai resolve (конфликт MR)."""
+    async with sessionmanager.session() as db:
+        result = await run_conflict_resolution(db, repo=repo, mr_iid=mr_iid, bitrix=Bitrix())
+        await db.commit()
+    log_event("run_resolve_done", repo=repo, mr_iid=mr_iid, status=result.get("status"))
 
 
 async def drain_outbox(ctx: dict[str, Any]) -> int:
