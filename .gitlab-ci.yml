@@ -1,6 +1,11 @@
-stages: [lint, test]
+stages: [lint, test, build, deploy]
 
-default:
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+
+# --- Качество: на merge request и main (python-образ, poetry) ---
+.python:
   image: python:3.14-slim
   before_script:
     - pip install poetry==1.8.5
@@ -8,22 +13,26 @@ default:
     - poetry install --no-root --no-interaction
 
 lint:
+  extends: .python
   stage: lint
   script:
     - ruff check .
     - ruff format --check .
 
 typecheck:
+  extends: .python
   stage: lint
   script:
     - mypy app
 
 docs:
+  extends: .python
   stage: lint
   script:
     - mkdocs build --strict
 
 test:
+  extends: .python
   stage: test
   services:
     - name: postgres:15
@@ -38,3 +47,43 @@ test:
     REDIS_URL: "redis://redis:6379/0"
   script:
     - pytest -q
+
+# --- Сборка образа и пуш в GitLab Container Registry (только main) ---
+build_image:
+  stage: build
+  tags: [ai-developer]
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA" -t "$CI_REGISTRY_IMAGE:latest" .
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+    - docker push "$CI_REGISTRY_IMAGE:latest"
+  only:
+    - main
+
+# --- Деплой на выделенный сервер (runner с тегом ai-developer, вручную) ---
+# На сервере: клон репо в $APP_DIR с заполненными secrets/* и .env (вне VCS).
+deploy_prod:
+  stage: deploy
+  tags: [ai-developer]
+  variables:
+    GIT_STRATEGY: none
+    APP_DIR: /var/www/ai-developer
+    COMPOSE: "-f docker-compose.yml -f docker-compose.prod.yml"
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - cd "$APP_DIR"
+    # Обновить compose/Caddyfile до текущего коммита; gitignored secrets/.env сохраняются.
+    - git fetch origin && git reset --hard "$CI_COMMIT_SHA"
+    - export AI_IMAGE="$CI_REGISTRY_IMAGE" AI_TAG="$CI_COMMIT_SHA"
+    - docker compose $COMPOSE pull api worker
+    # Миграции до подъёма приложения: поднять БД, прогнать alembic, затем весь стек.
+    - docker compose $COMPOSE up -d postgres redis
+    - docker compose $COMPOSE run --rm api alembic upgrade head
+    - docker compose $COMPOSE up -d --remove-orphans
+    - docker image prune -f
+  environment:
+    name: production
+    url: https://10.0.0.111
+  when: manual
+  only:
+    - main

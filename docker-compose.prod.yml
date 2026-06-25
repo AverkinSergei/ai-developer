@@ -4,6 +4,9 @@
 # internal-сети; ingress только через reverse proxy с TLS и rate limit.
 services:
   api:
+    # CI деплоит образ из registry: AI_IMAGE=$CI_REGISTRY_IMAGE, AI_TAG=$CI_COMMIT_SHA.
+    # Локально (без CI) дефолт ai-developer:latest собирается через up -d --build.
+    image: ${AI_IMAGE:-ai-developer}:${AI_TAG:-latest}
     read_only: true
     tmpfs:
       - /tmp:size=1g,noexec,nosuid,nodev
@@ -19,9 +22,8 @@ services:
       - internal_api_token
     deploy:
       resources:
-        limits: { cpus: "1.0", memory: 1g }
+        limits: { cpus: "1.0", memory: 1g, pids: 256 }
     security_opt: ["no-new-privileges:true"]
-    pids_limit: 256
 
   worker:
     command: arq app.worker.WorkerSettings
@@ -40,9 +42,8 @@ services:
       - openai_api_key
     deploy:
       resources:
-        limits: { cpus: "4.0", memory: 8g }
+        limits: { cpus: "4.0", memory: 8g, pids: 512 }
     security_opt: ["no-new-privileges:true"]
-    pids_limit: 512
 
   postgres:
     networks: [net_internal]

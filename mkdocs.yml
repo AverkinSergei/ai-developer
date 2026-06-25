@@ -52,6 +52,7 @@ nav:
       - Требования к окружению: deployment/requirements.md
       - Локально с внешними Битрикс24/GitLab: deployment/local-external.md
       - Выделенный сервер по IP: deployment/dedicated-ip.md
+      - CI/CD (сборка и деплой): deployment/cicd.md
       - Production: deployment/production.md
       - Наблюдаемость: deployment/observability.md
       - Масштабирование: deployment/scaling.md
