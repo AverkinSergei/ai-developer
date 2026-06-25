@@ -25,6 +25,8 @@ sudo mkdir -p /var/www/ai-developer && sudo chown "$USER" /var/www/ai-developer
 git clone git@gitlab.bpg.team:developer/microservices/ai-developer.git /var/www/ai-developer
 cd /var/www/ai-developer
 # заполнить secrets/* и .env (см. «Выделенный сервер по IP»); они в .gitignore и git reset их не трогает
+# секреты должны читаться контейнером (appuser uid 10001):
+sudo chown 10001:10001 secrets/* && sudo chmod 0400 secrets/*
 ```
 
 **2. GitLab Runner на сервере** (docker-исполнитель с доступом к хостовому docker).
