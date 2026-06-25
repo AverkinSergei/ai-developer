@@ -74,8 +74,10 @@ deploy_prod:
     - cd "$APP_DIR"
     # Каталог примонтирован с хоста и принадлежит другому пользователю — снять git-блокировку.
     - git config --global --add safe.directory "$APP_DIR"
-    # Обновить compose/Caddyfile до текущего коммита; gitignored secrets/.env сохраняются.
-    - git fetch origin && git reset --hard "$CI_COMMIT_SHA"
+    # Обновить compose/Caddyfile до коммита по HTTPS+CI_JOB_TOKEN (в контейнере нет SSH-ключа);
+    # gitignored secrets/.env сохраняются (reset --hard их не трогает).
+    - git fetch "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "+refs/heads/*:refs/remotes/origin/*"
+    - git reset --hard "$CI_COMMIT_SHA"
     - export AI_IMAGE="$CI_REGISTRY_IMAGE" AI_TAG="$CI_COMMIT_SHA"
     - docker compose $COMPOSE pull api worker
     # Миграции до подъёма приложения: поднять БД, прогнать alembic, затем весь стек.
