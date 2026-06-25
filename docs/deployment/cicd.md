@@ -27,19 +27,25 @@ cd /var/www/ai-developer
 # заполнить secrets/* и .env (см. «Выделенный сервер по IP»); они в .gitignore и git reset их не трогает
 ```
 
-**2. GitLab Runner на сервере** (docker-исполнитель с доступом к хостовому docker), тег
-`ai-developer`:
+**2. GitLab Runner на сервере** (docker-исполнитель с доступом к хостовому docker).
+
+GitLab 16+ отключил регистрацию по registration-token (`410 Gone — runner registration
+disallowed`). Сначала **создайте runner в UI**: Settings → CI/CD → Runners → **New project
+runner**, платформа Linux, в **Tags** укажите `ai-developer` (при необходимости снимите «Run
+untagged jobs»), Create — GitLab выдаст authentication-token `glrt-…`.
+
+Затем зарегистрируйте им на сервере (теги уже заданы в UI, `--registration-token` не нужен):
 
 ```bash
 # на сервере установлен gitlab-runner + docker
 sudo gitlab-runner register \
-  --url https://gitlab.bpg.team/ \
-  --registration-token <PROJECT_TOKEN> \
+  --non-interactive \
+  --url https://gitlab.bpg.team \
+  --token glrt-xxxxxxxxxxxx \
   --executor docker \
   --docker-image docker:27 \
   --docker-volumes /var/run/docker.sock:/var/run/docker.sock \
   --docker-volumes /var/www/ai-developer:/var/www/ai-developer \
-  --tag-list ai-developer \
   --description "ai-developer prod"
 ```
 
