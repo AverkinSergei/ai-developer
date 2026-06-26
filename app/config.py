@@ -7,7 +7,7 @@ docker-compose.yml, MR или Битрикс24.
 from functools import lru_cache
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -16,7 +16,8 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
-        # Docker secrets: файлы в /run/secrets/<имя_поля> переопределяют env.
+        # Docker secrets: файлы в /run/secrets/<имя_поля> переопределяют env
+        # (порядок источников задан в settings_customise_sources).
         secrets_dir="/run/secrets",
     )
 
@@ -99,6 +100,20 @@ class Settings(BaseSettings):
     healthcheck_timeout_sec: int = 5
     metrics_enabled: bool = True
     log_redaction_enabled: bool = True
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Docker secrets — источник истины: секрет важнее env/.env. По умолчанию pydantic
+        # ставит secrets_dir ниже env, поэтому оставленный в .env BRIEFING_DB_URL перекрывал бы
+        # секрет. init-аргументы остаются выше всех (для тестов).
+        return init_settings, file_secret_settings, env_settings, dotenv_settings
 
     @field_validator("ai_go_approvers", mode="after")
     @classmethod
