@@ -27,6 +27,7 @@ services:
 
   worker:
     command: arq app.worker.WorkerSettings
+    image: ${AI_IMAGE:-ai-developer}:${AI_TAG:-latest}
     read_only: true
     tmpfs:
       - /tmp:size=1g,noexec,nosuid,nodev
@@ -42,7 +43,7 @@ services:
       - openai_api_key
     deploy:
       resources:
-        limits: { cpus: "4.0", memory: 8g, pids: 512 }
+        limits: { cpus: "2.0", memory: 4g, pids: 512 }
     security_opt: ["no-new-privileges:true"]
 
   postgres:
