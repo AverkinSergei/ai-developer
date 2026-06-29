@@ -19,17 +19,19 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec api alembic
   `gitlab_webhook_secret`, `bitrix_app_token`, `openai_api_key`, `internal_api_token`.
 - **Сети** — `postgres`/`redis` в `net_internal` (`internal: true`, без внешнего доступа);
   `api`/`worker` дополнительно в `net_egress` для исходящих REST.
-- **Reverse proxy (Caddy)** — TLS, лимит размера тела, наружу только `/bitrix-webhook`,
-  `/gitlab-webhook`, `/healthz`, `/readyz`. `/metrics` и `/internal/*` не публикуются.
+- **Reverse proxy (Caddy)** — TLS (или HTTP во внутренней сети), лимит размера тела, наружу
+  только `/bitrix-webhook`, `/gitlab-webhook`, `/healthz`, `/readyz`. `/metrics` и
+  `/internal/*` не публикуются.
 - **Hardening контейнеров** — `read_only` rootfs, `tmpfs` для `/tmp`, `no-new-privileges`,
   `pids_limit`, лимиты CPU/RAM.
 
 ## Caddyfile
 
-По умолчанию `Caddyfile` настроен на **self-signed TLS по IP** (`https://10.0.0.111`,
-`tls internal`, `bind 0.0.0.0`) — для развёртывания без домена, см. [Выделенный сервер по
-IP](dedicated-ip.md). Для домена замените адрес сайта на реальный домен и уберите
-`bind`/`tls internal` — Caddy получит доверенный сертификат автоматически (ACME). Наружу
+По умолчанию `Caddyfile` настроен на **HTTP по IP** (`http://10.0.0.111`, `bind 0.0.0.0`,
+порт `80`) — для изолированной внутренней сети без TLS, см. [Выделенный сервер по
+IP](dedicated-ip.md). Для шифрования верните **self-signed TLS** (раскомментировать
+`default_sni`, адрес `https://10.0.0.111`, `tls internal`). Для домена — реальный домен без
+`bind`/`tls internal`, Caddy получит доверенный сертификат автоматически (ACME). Наружу
 открыты только вебхуки и health-пробы; остальное — 404.
 
 ## Миграции и backup

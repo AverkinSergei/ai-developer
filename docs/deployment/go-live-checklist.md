@@ -4,7 +4,7 @@
 
 - [ ] Выделенный сервер/VM; ресурсы по профилю (см. [Требования](requirements.md)).
 - [ ] `docker-compose.prod.yml` поднят; `api`/`worker`/`postgres`/`redis`/`proxy` healthy.
-- [ ] Caddy с TLS (домен через ACME либо self-signed по IP — см. [Выделенный сервер по IP](dedicated-ip.md)); наружу открыты только вебхуки и health.
+- [ ] Caddy: TLS (домен через ACME либо self-signed по IP) или HTTP в изолированной внутренней сети — см. [Выделенный сервер по IP](dedicated-ip.md); наружу открыты только вебхуки и health.
 - [ ] Автоматический daily backup PostgreSQL + retention.
 - [ ] Prometheus скрейпит `/metrics`; алерты настроены.
 

@@ -68,8 +68,8 @@ services:
     depends_on: [api]
     networks: [net_internal, net_egress]
     ports:
-      - "443:443"
       - "80:80"
+      # - "443:443"  # включить при возврате на TLS-вариант Caddyfile
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
