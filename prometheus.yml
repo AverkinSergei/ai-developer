@@ -1,0 +1,17 @@
+# Скрейп метрик ai-developer. Используется docker-compose.monitoring.yml.
+# /metrics отдаёт api на порту 8080 во внутренней сети и наружу не публикуется,
+# поэтому Prometheus обращается к сервису по имени api:8080 (METRICS_ENABLED=true).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: ai-developer
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8080"]
+
+  # Самонаблюдение Prometheus (по желанию).
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

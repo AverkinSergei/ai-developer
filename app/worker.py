@@ -8,7 +8,7 @@ from typing import Any
 from arq import create_pool, cron
 from arq.connections import RedisSettings
 
-from app.audit import log_event
+from app.audit import configure_logging, log_event
 from app.briefing_store import BriefingStore
 from app.clients.bitrix import Bitrix
 from app.clients.gitlab_client import GitLab
@@ -132,9 +132,14 @@ async def drain_outbox(ctx: dict[str, Any]) -> int:
     return sent
 
 
+async def _on_startup(ctx: dict[str, Any]) -> None:
+    configure_logging()
+
+
 class WorkerSettings:
     functions = [run_task_phase, run_command, run_fix, run_resolve]
     cron_jobs = [cron(drain_outbox, second={0, 15, 30, 45})]
     redis_settings = _redis_settings()
     max_jobs = settings.worker_concurrency
     job_timeout = settings.phase_timeout_sec
+    on_startup = _on_startup

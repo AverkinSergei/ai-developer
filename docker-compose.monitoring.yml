@@ -1,0 +1,60 @@
+# Мониторинг: Prometheus + Grafana. Накатывается ПОВЕРХ prod-оверлея — берёт ту же
+# внутреннюю сеть net_internal, где живёт api, и скрейпит api:8080/metrics.
+#
+# Запуск (одной командой):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#                  -f docker-compose.monitoring.yml up -d prometheus grafana
+#
+# UI слушают только localhost сервера — наружу не публикуются. Доступ по SSH-туннелю
+# с рабочей машины:
+#   ssh -L 9090:127.0.0.1:9090 -L 3000:127.0.0.1:3000 <сервер>
+#   Prometheus -> http://localhost:9090  (Status -> Targets: ai-developer = UP)
+#   Grafana    -> http://localhost:3000  (логин admin / GRAFANA_ADMIN_PASSWORD)
+#
+# Источник данных Prometheus и дашборд "AI-developer — обзор" подключаются автоматически
+# через provisioning (./grafana/provisioning + ./grafana/dashboards). Дашборд лежит в
+# папке ai-developer (Dashboards -> ai-developer).
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.0  # LTS; можно поднять версию
+    restart: unless-stopped
+    networks: [net_internal]        # та же сеть, что и api -> резолвит api:8080
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "127.0.0.1:9090:9090"       # UI только с localhost (через SSH-туннель)
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512m }
+
+  grafana:
+    image: grafana/grafana:11.1.0   # можно поднять версию
+    restart: unless-stopped
+    depends_on: [prometheus]
+    networks: [net_internal]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"       # UI только с localhost (через SSH-туннель)
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512m }
+
+networks:
+  net_internal:
+    internal: true  # совпадает с docker-compose.prod.yml; postgres/redis/api/мониторинг
+
+volumes:
+  prom_data:
+  grafana_data:

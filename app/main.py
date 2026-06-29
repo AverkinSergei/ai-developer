@@ -10,6 +10,7 @@ from fastapi import FastAPI, Response
 from fastapi.responses import JSONResponse
 
 from app import __version__, metrics
+from app.audit import configure_logging
 from app.config import settings
 from app.db.base import sessionmanager
 from app.state import store
@@ -18,6 +19,7 @@ from app.webhooks import router as webhooks_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_logging()
     sessionmanager.init(settings.briefing_db_url)
     store.init()
     yield

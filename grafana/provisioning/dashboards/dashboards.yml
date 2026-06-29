@@ -1,0 +1,15 @@
+# Провайдер дашбордов из файлов. Grafana подхватывает JSON из /etc/grafana/dashboards.
+apiVersion: 1
+
+providers:
+  - name: ai-developer
+    orgId: 1
+    folder: ai-developer
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false
